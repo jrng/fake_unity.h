@@ -78,7 +78,8 @@ typedef struct FakeUnityGraphicsDeviceEventCallbacks
 #define __FAKE_UNITY_VULKAN_INSTANCE_FUNCTIONS(__name__) \
     __name__(vkGetDeviceProcAddr); \
     __name__(vkEnumeratePhysicalDevices); \
-    __name__(vkGetPhysicalDeviceProperties)
+    __name__(vkGetPhysicalDeviceProperties); \
+    __name__(vkCreateDevice)
 
 #define declare_function(name) PFN_##name name
 
@@ -90,7 +91,12 @@ typedef struct FakeUnityVulkanRenderer
     void *loader_handle;
 #endif
 
+    VkInstance instance;
+    VkPhysicalDevice physical_device;
+    VkDevice device;
+
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
+    PFN_vkGetInstanceProcAddr loader_vkGetInstanceProcAddr;
 
     __FAKE_UNITY_VULKAN_GLOBAL_FUNCTIONS(declare_function);
 
@@ -136,11 +142,36 @@ FAKE_UNITY_DEF bool fake_unity_create_vulkan_renderer(int32_t device_index);
 
 static FakeUnityState __fake_unity_state;
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #if FAKE_UNITY_PLATFORM_WINDOWS
     // TODO:
 #elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
 #  include <dlfcn.h>
 #endif
+
+static inline const char *
+__fake_unity_vk_physical_device_type_to_string(VkPhysicalDeviceType type)
+{
+    const char *str = "<unknown-vk-physical-device-type>";
+
+#  define NAME(name) case name: str = #name; break
+
+    switch (type)
+    {
+        NAME(VK_PHYSICAL_DEVICE_TYPE_OTHER);
+        NAME(VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU);
+        NAME(VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
+        NAME(VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU);
+        NAME(VK_PHYSICAL_DEVICE_TYPE_CPU);
+        default: break;
+    }
+
+#  undef NAME
+
+    return str;
+}
 
 #define ARRAY_ENSURE_SPACE(array, item_type)                                                      \
     do {                                                                                          \
@@ -277,8 +308,17 @@ static UnityVulkanInstance
 UnityGraphicsVulkan_Instance()
 {
     fprintf(stderr, "[fake_unity] TODO: Instance\n");
-    UnityVulkanInstance instance;
-    return instance;
+    UnityVulkanInstance vulkan_instance;
+
+    // TODO: VkPipelineCache pipelineCache; // Unity's pipeline cache is serialized to disk
+    vulkan_instance.instance = __fake_unity_state.renderer.vulkan.instance;
+    vulkan_instance.physicalDevice = __fake_unity_state.renderer.vulkan.physical_device;
+    vulkan_instance.device = __fake_unity_state.renderer.vulkan.device;
+    // TODO: VkQueue graphicsQueue;
+    vulkan_instance.getInstanceProcAddr = __fake_unity_state.renderer.vulkan.loader_vkGetInstanceProcAddr;
+    // TODO: unsigned int queueFamilyIndex;
+
+    return vulkan_instance;
 }
 
 static bool
@@ -520,7 +560,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
         return false;
     }
 
-    renderer->vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(renderer->loader_handle, "vkGetInstanceProcAddr");
+    renderer->loader_vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(renderer->loader_handle, "vkGetInstanceProcAddr");
 
 #  define CLOSE_VULKAN_LOADER(handle) \
     FreeLibrary(handle); \
@@ -534,25 +574,27 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
         return false;
     }
 
-    renderer->vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(renderer->loader_handle, "vkGetInstanceProcAddr");
+    renderer->loader_vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(renderer->loader_handle, "vkGetInstanceProcAddr");
 
 #  define CLOSE_VULKAN_LOADER(handle) \
     dlclose(handle); \
     handle = 0
 #endif
 
-    if (!renderer->vkGetInstanceProcAddr)
+    if (!renderer->loader_vkGetInstanceProcAddr)
     {
         fprintf(stderr, "[fake_unity] error: could not load vulkan function 'vkGetInstanceProcAddr'.\n");
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
     }
 
+    renderer->vkGetInstanceProcAddr = renderer->loader_vkGetInstanceProcAddr;
+
     PFN_vkGetInstanceProcAddr plugin_vkGetInstanceProcAddr = 0;
 
     if (__fake_unity_state.unity_vulkan_init_callback)
     {
-        plugin_vkGetInstanceProcAddr = __fake_unity_state.unity_vulkan_init_callback(renderer->vkGetInstanceProcAddr,
+        plugin_vkGetInstanceProcAddr = __fake_unity_state.unity_vulkan_init_callback(renderer->loader_vkGetInstanceProcAddr,
                                                                                      __fake_unity_state.unity_vulkan_init_userdata);
 
         if (plugin_vkGetInstanceProcAddr)
@@ -614,6 +656,8 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
         return false;
     }
 
+    renderer->instance = instance;
+
 #define load_function(name)                                                                       \
     do                                                                                            \
     {                                                                                             \
@@ -654,21 +698,54 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
         VkPhysicalDeviceProperties properties;
         renderer->vkGetPhysicalDeviceProperties(physical_devices[i], &properties);
 
-        fprintf(stderr, "[fake_unity]   [%u] %s (type = %d) (api version = %u.%u.%u)\n", i, properties.deviceName, properties.deviceType,
+        fprintf(stderr, "[fake_unity] [%u] %s (type = %s) (api version = %u.%u.%u)\n",
+                        i, properties.deviceName, __fake_unity_vk_physical_device_type_to_string(properties.deviceType),
                         VK_VERSION_MAJOR(properties.apiVersion), VK_VERSION_MINOR(properties.apiVersion), VK_VERSION_PATCH(properties.apiVersion));
     }
 
-    if (device_index < 0)
+    if ((device_index < 0) || (device_index >= (int32_t) physical_device_count))
     {
         // TODO: find best device
         device_index = 0;
     }
 
-    if (device_index < 0)
+    if ((device_index < 0) || (device_index >= (int32_t) physical_device_count))
+    {
+        fprintf(stderr, "[fake_unity] error: device_index = %d is out of bounds [0, %u).\n", device_index, physical_device_count);
+        free(physical_devices);
+        CLOSE_VULKAN_LOADER(renderer->loader_handle);
+        return false;
+    }
+
+    VkPhysicalDevice physical_device = physical_devices[device_index];
+
+    free(physical_devices);
+
+    fprintf(stderr, "[fake_unity] selected device at index %d\n", device_index);
+
+    renderer->physical_device = physical_device;
+
+    VkDeviceCreateInfo device_create_info;
+    device_create_info.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    device_create_info.pNext                   = 0;
+    device_create_info.flags                   = 0;
+    device_create_info.queueCreateInfoCount    = 0;
+    device_create_info.pQueueCreateInfos       = 0;
+    device_create_info.enabledLayerCount       = 0;
+    device_create_info.ppEnabledLayerNames     = 0;
+    device_create_info.enabledExtensionCount   = 0;
+    device_create_info.ppEnabledExtensionNames = 0;
+    device_create_info.pEnabledFeatures        = 0;
+
+    VkDevice device;
+
+    if (renderer->vkCreateDevice(physical_device, &device_create_info, 0, &device) != VK_SUCCESS)
     {
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
     }
+
+    renderer->device = device;
 
 #undef CLOSE_VULKAN_LOADER
 

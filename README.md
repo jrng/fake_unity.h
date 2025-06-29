@@ -1,7 +1,7 @@
 **fake_unity.h** is a single header library to simulate the minimum required functionality
 of the unity game engine to load and run native plugins compiled against the unity native plugin api.
 The main use case of this library is to run these plugins outside the engine. This can be used to
-do unit testing without needed a full unity project and the whole engine.
+do unit testing without needing a full unity project and the whole engine.
 
 ## How to use
 
