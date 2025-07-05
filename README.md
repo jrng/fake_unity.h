@@ -6,8 +6,9 @@ do unit testing without needing a full unity project and the whole engine.
 ## How to use
 
 ```c
-#define VK_NO_PROTOTYPES
+#include "IUnityProfiler.h"
 #include "IUnityGraphics.h"
+#define VK_NO_PROTOTYPES
 #include "IUnityGraphicsVulkan.h"
 
 #define FAKE_UNITY_IMPLEMENTATION

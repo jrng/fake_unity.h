@@ -81,6 +81,9 @@ typedef struct FakeUnityGraphicsDeviceEventCallbacks
     __name__(vkGetPhysicalDeviceProperties); \
     __name__(vkCreateDevice)
 
+#define __FAKE_UNITY_VULKAN_DEVICE_FUNCTIONS(__name__) \
+    __name__(vkGetDeviceQueue)
+
 #define declare_function(name) PFN_##name name
 
 typedef struct FakeUnityVulkanRenderer
@@ -94,6 +97,8 @@ typedef struct FakeUnityVulkanRenderer
     VkInstance instance;
     VkPhysicalDevice physical_device;
     VkDevice device;
+    VkQueue graphics_queue;
+    uint32_t graphics_queue_index;
 
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
     PFN_vkGetInstanceProcAddr loader_vkGetInstanceProcAddr;
@@ -101,6 +106,8 @@ typedef struct FakeUnityVulkanRenderer
     __FAKE_UNITY_VULKAN_GLOBAL_FUNCTIONS(declare_function);
 
     __FAKE_UNITY_VULKAN_INSTANCE_FUNCTIONS(declare_function);
+
+    __FAKE_UNITY_VULKAN_DEVICE_FUNCTIONS(declare_function);
 } FakeUnityVulkanRenderer;
 
 #undef declare_function
@@ -122,6 +129,7 @@ typedef struct FakeUnityState
     void *unity_vulkan_init_userdata;
 
     IUnityInterfaces unity_interfaces;
+    IUnityProfiler unity_profiler;
     IUnityGraphics unity_graphics;
     IUnityGraphicsVulkan unity_graphics_vulkan;
 
@@ -131,7 +139,7 @@ typedef struct FakeUnityState
     } renderer;
 } FakeUnityState;
 
-FAKE_UNITY_DEF bool fake_unity_initialize(UnityGfxRenderer renderer, int32_t max_plugin_count);
+FAKE_UNITY_DEF bool fake_unity_initialize(int32_t max_plugin_count);
 FAKE_UNITY_DEF uint32_t fake_unity_load_native_plugin(const char *filename);
 FAKE_UNITY_DEF void *fake_unity_native_plugin_get_proc_address(uint32_t plugin_handle, const char *proc_name);
 FAKE_UNITY_DEF bool fake_unity_create_vulkan_renderer(int32_t device_index);
@@ -246,6 +254,54 @@ IUnityInterfaces_RegisterInterface(UnityInterfaceGUID guid, IUnityInterface *ptr
     return IUnityInterfaces_RegisterInterfaceSplit(guid.m_GUIDHigh, guid.m_GUIDLow, ptr);
 }
 
+static void
+IUnityProfiler_EmitEvent(const UnityProfilerMarkerDesc* markerDesc, UnityProfilerMarkerEventType eventType, uint16_t eventDataCount, const UnityProfilerMarkerData* eventData)
+{
+    fprintf(stderr, "[fake_unity] TODO: EmitEvent\n");
+}
+
+static int
+IUnityProfiler_IsEnabled()
+{
+    fprintf(stderr, "[fake_unity] TODO: IsEnabled\n");
+    return 0;
+}
+
+static int
+IUnityProfiler_IsAvailable()
+{
+    fprintf(stderr, "[fake_unity] TODO: IsAvailable\n");
+    return 0;
+}
+
+static int
+IUnityProfiler_CreateMarker(const UnityProfilerMarkerDesc** desc, const char* name, UnityProfilerCategoryId category, UnityProfilerMarkerFlags flags, int eventDataCount)
+{
+    fprintf(stderr, "[fake_unity] TODO: CreateMarker\n");
+    return 0;
+}
+
+static int
+IUnityProfiler_SetMarkerMetadataName(const UnityProfilerMarkerDesc* desc, int index, const char* metadataName, UnityProfilerMarkerDataType metadataType, UnityProfilerMarkerDataUnit metadataUnit)
+{
+    fprintf(stderr, "[fake_unity] TODO: SetMarkerMetadataName\n");
+    return 0;
+}
+
+static int
+IUnityProfiler_RegisterThread(UnityProfilerThreadId* threadId, const char* groupName, const char* name)
+{
+    fprintf(stderr, "[fake_unity] TODO: RegisterThread\n");
+    return 0;
+}
+
+static int
+IUnityProfiler_UnregisterThread(UnityProfilerThreadId threadId)
+{
+    fprintf(stderr, "[fake_unity] TODO: UnregisterThread\n");
+    return 0;
+}
+
 static UnityGfxRenderer
 IUnityGraphics_GetRenderer()
 {
@@ -307,16 +363,15 @@ UnityGraphicsVulkan_ConfigureEvent(int event_id, const UnityVulkanPluginEventCon
 static UnityVulkanInstance
 UnityGraphicsVulkan_Instance()
 {
-    fprintf(stderr, "[fake_unity] TODO: Instance\n");
     UnityVulkanInstance vulkan_instance;
 
-    // TODO: VkPipelineCache pipelineCache; // Unity's pipeline cache is serialized to disk
+    vulkan_instance.pipelineCache = VK_NULL_HANDLE;
     vulkan_instance.instance = __fake_unity_state.renderer.vulkan.instance;
     vulkan_instance.physicalDevice = __fake_unity_state.renderer.vulkan.physical_device;
     vulkan_instance.device = __fake_unity_state.renderer.vulkan.device;
-    // TODO: VkQueue graphicsQueue;
+    vulkan_instance.graphicsQueue = __fake_unity_state.renderer.vulkan.graphics_queue;
     vulkan_instance.getInstanceProcAddr = __fake_unity_state.renderer.vulkan.loader_vkGetInstanceProcAddr;
-    // TODO: unsigned int queueFamilyIndex;
+    vulkan_instance.queueFamilyIndex = __fake_unity_state.renderer.vulkan.graphics_queue_index;
 
     return vulkan_instance;
 }
@@ -398,22 +453,22 @@ UnityGraphicsVulkan_AccessTextureByID(UnityTextureID texture_id, const VkImageSu
 }
 
 FAKE_UNITY_DEF bool
-fake_unity_initialize(UnityGfxRenderer renderer_type, int32_t max_plugin_count)
+fake_unity_initialize(int32_t max_plugin_count)
 {
     __fake_unity_state.renderer_type = kUnityGfxRendererNull;
-
-    // for now we only support vulkan as a renderer
-    if (renderer_type != kUnityGfxRendererVulkan)
-    {
-        return false;
-    }
-
-    __fake_unity_state.renderer_type = renderer_type;
 
     __fake_unity_state.unity_interfaces.GetInterface           = IUnityInterfaces_GetInterface;
     __fake_unity_state.unity_interfaces.RegisterInterface      = IUnityInterfaces_RegisterInterface;
     __fake_unity_state.unity_interfaces.GetInterfaceSplit      = IUnityInterfaces_GetInterfaceSplit;
     __fake_unity_state.unity_interfaces.RegisterInterfaceSplit = IUnityInterfaces_RegisterInterfaceSplit;
+
+    __fake_unity_state.unity_profiler.EmitEvent             = IUnityProfiler_EmitEvent;
+    __fake_unity_state.unity_profiler.IsEnabled             = IUnityProfiler_IsEnabled;
+    __fake_unity_state.unity_profiler.IsAvailable           = IUnityProfiler_IsAvailable;
+    __fake_unity_state.unity_profiler.CreateMarker          = IUnityProfiler_CreateMarker;
+    __fake_unity_state.unity_profiler.SetMarkerMetadataName = IUnityProfiler_SetMarkerMetadataName;
+    __fake_unity_state.unity_profiler.RegisterThread        = IUnityProfiler_RegisterThread;
+    __fake_unity_state.unity_profiler.UnregisterThread      = IUnityProfiler_UnregisterThread;
 
     __fake_unity_state.unity_graphics.GetRenderer                   = IUnityGraphics_GetRenderer;
     __fake_unity_state.unity_graphics.RegisterDeviceEventCallback   = IUnityGraphics_RegisterDeviceEventCallback;
@@ -435,17 +490,9 @@ fake_unity_initialize(UnityGfxRenderer renderer_type, int32_t max_plugin_count)
     __fake_unity_state.unity_graphics_vulkan.ConfigureSwapchain               = UnityGraphicsVulkan_ConfigureSwapchain;
     __fake_unity_state.unity_graphics_vulkan.AccessTextureByID                = UnityGraphicsVulkan_AccessTextureByID;
 
+    IUnityInterfaces_RegisterInterfaceSplit(0x2CE79ED8316A4833ULL, 0x87076B2013E1571FULL, &__fake_unity_state.unity_profiler);
     IUnityInterfaces_RegisterInterfaceSplit(0x7CBA0A9CA4DDB544ULL, 0x8C5AD4926EB17B11ULL, &__fake_unity_state.unity_graphics);
-
-    switch (__fake_unity_state.renderer_type)
-    {
-        case kUnityGfxRendererVulkan:
-        {
-            IUnityInterfaces_RegisterInterfaceSplit(0x95355348d4ef4e11ULL, 0x9789313dfcffcc87ULL, &__fake_unity_state.unity_graphics_vulkan);
-        } break;
-
-        default: break;
-    }
+    IUnityInterfaces_RegisterInterfaceSplit(0x95355348d4ef4e11ULL, 0x9789313dfcffcc87ULL, &__fake_unity_state.unity_graphics_vulkan);
 
     if (max_plugin_count <= 0)
     {
@@ -539,7 +586,7 @@ fake_unity_native_plugin_get_proc_address(uint32_t plugin_handle, const char *pr
 FAKE_UNITY_DEF bool
 fake_unity_create_vulkan_renderer(int32_t device_index)
 {
-    if (__fake_unity_state.renderer_type != kUnityGfxRendererVulkan)
+    if (__fake_unity_state.renderer_type != kUnityGfxRendererNull)
     {
         return false;
     }
@@ -565,7 +612,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 #  define CLOSE_VULKAN_LOADER(handle) \
     FreeLibrary(handle); \
     handle = 0
-#elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PALTFORM_MACOS
+#elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
     renderer->loader_handle = dlopen("libvulkan.so.1", RTLD_NOW);
 
     if (!renderer->loader_handle)
@@ -627,15 +674,14 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
                     VK_VERSION_MINOR(vulkan_instance_version),
                     VK_VERSION_PATCH(vulkan_instance_version));
 
-    // TODO: what does unity set here?
     VkApplicationInfo application_info;
     application_info.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     application_info.pNext              = 0;
-    application_info.pApplicationName   = "unity";
-    application_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    application_info.pEngineName        = "unity";
-    application_info.engineVersion      = VK_MAKE_VERSION(1, 0, 0);
-    application_info.apiVersion         = VK_API_VERSION_1_1;
+    application_info.pApplicationName   = "application";
+    application_info.applicationVersion = 1;
+    application_info.pEngineName        = "Unity";
+    application_info.engineVersion      = 1;
+    application_info.apiVersion         = VK_API_VERSION_1_0;
 
     VkInstanceCreateInfo instance_create_info;
     instance_create_info.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -725,12 +771,24 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     renderer->physical_device = physical_device;
 
+    uint32_t graphics_queue_index = 0; // TODO: correct index
+
+    float queue_priority = 1.0f;
+
+    VkDeviceQueueCreateInfo queue_create_info;
+    queue_create_info.sType               = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue_create_info.pNext               = 0;
+    queue_create_info.flags               = 0;
+    queue_create_info.queueFamilyIndex    = graphics_queue_index;
+    queue_create_info.queueCount          = 1;
+    queue_create_info.pQueuePriorities    = &queue_priority;
+
     VkDeviceCreateInfo device_create_info;
     device_create_info.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     device_create_info.pNext                   = 0;
     device_create_info.flags                   = 0;
-    device_create_info.queueCreateInfoCount    = 0;
-    device_create_info.pQueueCreateInfos       = 0;
+    device_create_info.queueCreateInfoCount    = 1;
+    device_create_info.pQueueCreateInfos       = &queue_create_info;
     device_create_info.enabledLayerCount       = 0;
     device_create_info.ppEnabledLayerNames     = 0;
     device_create_info.enabledExtensionCount   = 0;
@@ -747,7 +805,37 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     renderer->device = device;
 
+#define load_function(name)                                                                       \
+    do                                                                                            \
+    {                                                                                             \
+        renderer->name = (PFN_##name) renderer->vkGetDeviceProcAddr(device, #name);               \
+        if (!renderer->name)                                                                      \
+        {                                                                                         \
+            fprintf(stderr, "[fake_unity] error: could not load vulkan function '" #name "'.\n"); \
+            CLOSE_VULKAN_LOADER(renderer->loader_handle);                                         \
+            return false;                                                                         \
+        }                                                                                         \
+    } while (0)
+
+    __FAKE_UNITY_VULKAN_DEVICE_FUNCTIONS(load_function);
+
+#undef load_function
+
+    VkQueue graphics_queue;
+
+    renderer->vkGetDeviceQueue(device, graphics_queue_index, 0, &graphics_queue);
+
+    renderer->graphics_queue_index = graphics_queue_index;
+    renderer->graphics_queue = graphics_queue;
+
 #undef CLOSE_VULKAN_LOADER
+
+    __fake_unity_state.renderer_type = kUnityGfxRendererVulkan;
+
+    for (int32_t i = 0; i < __fake_unity_state.graphics_device_event_callbacks.count; i += 1)
+    {
+        __fake_unity_state.graphics_device_event_callbacks.items[i](kUnityGfxDeviceEventInitialize);
+    }
 
     return true;
 }
