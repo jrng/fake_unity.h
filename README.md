@@ -20,7 +20,7 @@ PFN_MyNativeFunction MyNativeFunction;
 
 int main(void)
 {
-    fake_unity_initialize(kUnityGfxRendererVulkan, 8);
+    fake_unity_initialize(8);
 #if FAKE_UNITY_PLATFORM_WINDOWS
     uint32_t plugin = fake_unity_load_native_plugin("libNativePlugin.dll");
 #else

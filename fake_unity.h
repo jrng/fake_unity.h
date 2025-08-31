@@ -143,6 +143,8 @@ FAKE_UNITY_DEF bool fake_unity_initialize(int32_t max_plugin_count);
 FAKE_UNITY_DEF uint32_t fake_unity_load_native_plugin(const char *filename);
 FAKE_UNITY_DEF void *fake_unity_native_plugin_get_proc_address(uint32_t plugin_handle, const char *proc_name);
 FAKE_UNITY_DEF bool fake_unity_create_vulkan_renderer(int32_t device_index);
+FAKE_UNITY_DEF void (*fake_unity_vulkan_get_instance_proc_address(const char *proc_name))(void);
+FAKE_UNITY_DEF void (*fake_unity_vulkan_get_device_proc_address(const char *proc_name))(void);
 
 #endif // __FAKE_UNITY_INCLUDE__
 
@@ -838,6 +840,30 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
     }
 
     return true;
+}
+
+FAKE_UNITY_DEF void
+(*fake_unity_vulkan_get_instance_proc_address(const char *proc_name))(void)
+{
+    if ((__fake_unity_state.renderer_type == kUnityGfxRendererVulkan) &&
+        (__fake_unity_state.renderer.vulkan.vkGetInstanceProcAddr))
+    {
+        return __fake_unity_state.renderer.vulkan.vkGetInstanceProcAddr(__fake_unity_state.renderer.vulkan.instance, proc_name);
+    }
+
+    return NULL;
+}
+
+FAKE_UNITY_DEF void
+(*fake_unity_vulkan_get_device_proc_address(const char *proc_name))(void)
+{
+    if ((__fake_unity_state.renderer_type == kUnityGfxRendererVulkan) &&
+        (__fake_unity_state.renderer.vulkan.vkGetDeviceProcAddr))
+    {
+        return __fake_unity_state.renderer.vulkan.vkGetDeviceProcAddr(__fake_unity_state.renderer.vulkan.device, proc_name);
+    }
+
+    return NULL;
 }
 
 #undef ARRAY_ENSURE_SPACE
