@@ -1,6 +1,49 @@
 // fake_unity.h - MIT License
 // See end of file for full license
 
+// fake_unity.h is a single header library to simulate the minimum required
+// functionality of the unity game engine to load and run native plugins
+// compiled against the unity native plugin api. The main use case of this
+// library is to run these plugins outside the engine. This can be used to
+// do unit testing without needing a full unity project and the whole engine.
+//
+// BATTERIES NOT INCLUDED
+//
+// You need to include the unity native plugin api headers like
+// IUnityGraphics.h, IUnityGraphicsVulkan.h, etc. yourself.
+// You can find them in the unity editor folder under 'Data/PluginAPI'.
+//
+// EXAMPLE
+//
+//   #include "IUnityProfiler.h"
+//   #include "IUnityGraphics.h"
+//   #define VK_NO_PROTOTYPES
+//   #include "IUnityGraphicsVulkan.h"
+//
+//   #define FAKE_UNITY_IMPLEMENTATION
+//   #include "fake_unity.h"
+//
+//   typedef int32_t (*PFN_MyNativeFunction)(int32_t a, int32_t b);
+//
+//   PFN_MyNativeFunction MyNativeFunction;
+//
+//   int main(void)
+//   {
+//       fake_unity_initialize(8);
+//   #if FAKE_UNITY_PLATFORM_WINDOWS
+//       uint32_t plugin = fake_unity_load_native_plugin("libNativePlugin.dll");
+//   #else
+//       uint32_t plugin = fake_unity_load_native_plugin("./libNativePlugin.so");
+//   #endif
+//       fake_unity_create_vulkan_renderer(-1);
+//
+//       MyNativeFunction = (PFN_MyNativeFunction) fake_unity_native_plugin_get_proc_address(plugin, "MyNativeFunction");
+//
+//       int32_t result = MyNativeFunction(16, 7);
+//
+//       return 0;
+//   }
+
 #ifndef __FAKE_UNITY_INCLUDE__
 #define __FAKE_UNITY_INCLUDE__
 
@@ -139,11 +182,32 @@ typedef struct FakeUnityState
     } renderer;
 } FakeUnityState;
 
+// This function initializes the fake_unity library and preallocates space
+// for the native plugins. max_plugin_count determines how many plugins can
+// be loaded at the same time, so this is best set to the upper bound of the
+// expected number of plugins. Returns true on success.
 FAKE_UNITY_DEF bool fake_unity_initialize(int32_t max_plugin_count);
+
+// Loads a native plugin from a given filename and calls UnityPluginLoad if
+// available. Returns a non zero plugin handle on success and zero on error.
 FAKE_UNITY_DEF uint32_t fake_unity_load_native_plugin(const char *filename);
+
+// Retrieves the pointer to a function from the native plugin.
 FAKE_UNITY_DEF void *fake_unity_native_plugin_get_proc_address(uint32_t plugin_handle, const char *proc_name);
+
+// Initializes the rendering subsystem with vulkan. device_index selects the
+// physical vulkan device to use. If device_index is negative a default
+// device is used. Returns true on success.
 FAKE_UNITY_DEF bool fake_unity_create_vulkan_renderer(int32_t device_index);
+
+// Returns the address of a vulkan instance procedure. Is only expected to be
+// called after a successful call to fake_unit_create_vulkan_renderer.
+// Returns non-NULL on success.
 FAKE_UNITY_DEF void (*fake_unity_vulkan_get_instance_proc_address(const char *proc_name))(void);
+
+// Returns the address of a vulkan device procedure. Is only expected to be
+// called after a successful call to fake_unit_create_vulkan_renderer.
+// Returns non-NULL on success.
 FAKE_UNITY_DEF void (*fake_unity_vulkan_get_device_proc_address(const char *proc_name))(void);
 
 #endif // __FAKE_UNITY_INCLUDE__
