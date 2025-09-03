@@ -78,6 +78,11 @@
 #  include <stdbool.h>
 #endif
 
+#if FAKE_UNITY_PLATFORM_WINDOWS
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+#endif
+
 typedef void (*PFN_UnityPluginLoad)(IUnityInterfaces *);
 typedef void (*PFN_UnityPluginUnload)();
 
@@ -101,7 +106,7 @@ typedef struct FakeUnityNativePlugin
     PFN_UnityPluginUnload UnityPluginUnload;
 
 #if FAKE_UNITY_PLATFORM_WINDOWS
-    // TODO:
+    HMODULE handle;
 #elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
     void *handle;
 #endif
@@ -132,7 +137,7 @@ typedef struct FakeUnityGraphicsDeviceEventCallbacks
 typedef struct FakeUnityVulkanRenderer
 {
 #if FAKE_UNITY_PLATFORM_WINDOWS
-    // TODO:
+    HMODULE loader_handle;
 #elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
     void *loader_handle;
 #endif
@@ -219,9 +224,7 @@ static FakeUnityState __fake_unity_state;
 #include <stdio.h>
 #include <stdlib.h>
 
-#if FAKE_UNITY_PLATFORM_WINDOWS
-    // TODO:
-#elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
+#if FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
 #  include <dlfcn.h>
 #endif
 
@@ -591,7 +594,14 @@ fake_unity_load_native_plugin(const char *filename)
     if (__fake_unity_state.free_plugin_count > 0)
     {
 #if FAKE_UNITY_PLATFORM_WINDOWS
-        // TODO:
+        // TODO: use the unicode variant which requires converting utf8 to utf16
+        HMODULE handle = LoadLibraryA(filename);
+
+        if (!handle)
+        {
+            fprintf(stderr, "[fake_unity] error: could not load native plugin '%s'\n", filename);
+            return 0;
+        }
 #elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
         void *handle = dlopen(filename, RTLD_NOW);
 
@@ -612,16 +622,17 @@ fake_unity_load_native_plugin(const char *filename)
         plugin->handle = handle;
 
 #if FAKE_UNITY_PLATFORM_WINDOWS
-        // TODO:
+        plugin->UnityPluginLoad   = (PFN_UnityPluginLoad)   GetProcAddress(plugin->handle, "UnityPluginLoad");
+        plugin->UnityPluginUnload = (PFN_UnityPluginUnload) GetProcAddress(plugin->handle, "UnityPluginUnload");
 #elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
-        plugin->UnityPluginLoad = (PFN_UnityPluginLoad) dlsym(plugin->handle, "UnityPluginLoad");
+        plugin->UnityPluginLoad   = (PFN_UnityPluginLoad)   dlsym(plugin->handle, "UnityPluginLoad");
         plugin->UnityPluginUnload = (PFN_UnityPluginUnload) dlsym(plugin->handle, "UnityPluginUnload");
+#endif
 
         if (plugin->UnityPluginLoad)
         {
             plugin->UnityPluginLoad(&__fake_unity_state.unity_interfaces);
         }
-#endif
     }
 
     return result;
@@ -640,7 +651,7 @@ fake_unity_native_plugin_get_proc_address(uint32_t plugin_handle, const char *pr
         FakeUnityNativePlugin *plugin = __fake_unity_state.plugins + index;
 
 #if FAKE_UNITY_PLATFORM_WINDOWS
-        // TODO:
+        result = GetProcAddress(plugin->handle, proc_name);
 #elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
         result = dlsym(plugin->handle, proc_name);
 #endif
@@ -669,7 +680,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     if (!renderer->loader_handle)
     {
-        fprintf(stderr, "[fake_unity] error: could not load vulkan loader -> %s\n", dlerror());
+        fprintf(stderr, "[fake_unity] error: could not load vulkan loader\n");
         return false;
     }
 
