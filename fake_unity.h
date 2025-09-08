@@ -208,12 +208,12 @@ FAKE_UNITY_DEF bool fake_unity_create_vulkan_renderer(int32_t device_index);
 // Returns the address of a vulkan instance procedure. Is only expected to be
 // called after a successful call to fake_unit_create_vulkan_renderer.
 // Returns non-NULL on success.
-FAKE_UNITY_DEF void (*fake_unity_vulkan_get_instance_proc_address(const char *proc_name))(void);
+FAKE_UNITY_DEF PFN_vkVoidFunction fake_unity_vulkan_get_instance_proc_address(const char *proc_name);
 
 // Returns the address of a vulkan device procedure. Is only expected to be
 // called after a successful call to fake_unit_create_vulkan_renderer.
 // Returns non-NULL on success.
-FAKE_UNITY_DEF void (*fake_unity_vulkan_get_device_proc_address(const char *proc_name))(void);
+FAKE_UNITY_DEF PFN_vkVoidFunction fake_unity_vulkan_get_device_proc_address(const char *proc_name);
 
 #endif // __FAKE_UNITY_INCLUDE__
 
@@ -917,8 +917,8 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
     return true;
 }
 
-FAKE_UNITY_DEF void
-(*fake_unity_vulkan_get_instance_proc_address(const char *proc_name))(void)
+FAKE_UNITY_DEF PFN_vkVoidFunction
+fake_unity_vulkan_get_instance_proc_address(const char *proc_name)
 {
     if ((__fake_unity_state.renderer_type == kUnityGfxRendererVulkan) &&
         (__fake_unity_state.renderer.vulkan.vkGetInstanceProcAddr))
@@ -929,8 +929,8 @@ FAKE_UNITY_DEF void
     return NULL;
 }
 
-FAKE_UNITY_DEF void
-(*fake_unity_vulkan_get_device_proc_address(const char *proc_name))(void)
+FAKE_UNITY_DEF PFN_vkVoidFunction
+fake_unity_vulkan_get_device_proc_address(const char *proc_name)
 {
     if ((__fake_unity_state.renderer_type == kUnityGfxRendererVulkan) &&
         (__fake_unity_state.renderer.vulkan.vkGetDeviceProcAddr))
