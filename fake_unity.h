@@ -743,13 +743,13 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
 #undef load_function
 
-    uint32_t vulkan_instance_version = VK_VERSION_1_0;
+    uint32_t vulkan_instance_version = VK_API_VERSION_1_0;
     renderer->vkEnumerateInstanceVersion(&vulkan_instance_version);
 
     fprintf(stderr, "[fake_unity] loaded vulkan library with instance version %u.%u.%u\n",
-                    VK_VERSION_MAJOR(vulkan_instance_version),
-                    VK_VERSION_MINOR(vulkan_instance_version),
-                    VK_VERSION_PATCH(vulkan_instance_version));
+                    VK_API_VERSION_MAJOR(vulkan_instance_version),
+                    VK_API_VERSION_MINOR(vulkan_instance_version),
+                    VK_API_VERSION_PATCH(vulkan_instance_version));
 
     VkApplicationInfo application_info;
     application_info.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -823,7 +823,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
         fprintf(stderr, "[fake_unity] [%u] %s (type = %s) (api version = %u.%u.%u)\n",
                         i, properties.deviceName, __fake_unity_vk_physical_device_type_to_string(properties.deviceType),
-                        VK_VERSION_MAJOR(properties.apiVersion), VK_VERSION_MINOR(properties.apiVersion), VK_VERSION_PATCH(properties.apiVersion));
+                        VK_API_VERSION_MAJOR(properties.apiVersion), VK_API_VERSION_MINOR(properties.apiVersion), VK_API_VERSION_PATCH(properties.apiVersion));
     }
 
     if ((device_index < 0) || (device_index >= (int32_t) physical_device_count))
