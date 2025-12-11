@@ -130,7 +130,8 @@ typedef struct FakeUnityGraphicsDeviceEventCallbacks
     __name__(vkCreateDevice)
 
 #define __FAKE_UNITY_VULKAN_DEVICE_FUNCTIONS(__name__) \
-    __name__(vkGetDeviceQueue)
+    __name__(vkGetDeviceQueue); \
+    __name__(vkCreateImageView)
 
 #define declare_function(name) PFN_##name name
 
@@ -187,6 +188,21 @@ typedef struct FakeUnityState
     } renderer;
 } FakeUnityState;
 
+// IMPORTANT: These format values are NOT the same as
+// the TextureFormat values defined in the C# scripting api.
+// So FakeUnity_TextureFormat_BGRA32 != TextureFormat.BGRA32
+typedef enum FakeUnity_TextureFormat
+{
+    FakeUnity_TextureFormat_Alpha8   = 0,
+    FakeUnity_TextureFormat_ARGB4444 = 1,
+    FakeUnity_TextureFormat_RGB24    = 2,
+    FakeUnity_TextureFormat_RGBA32   = 3,
+    FakeUnity_TextureFormat_ARGB32   = 4,
+    FakeUnity_TextureFormat_RGB565   = 5,
+
+    // TODO: all the rest
+} FakeUnity_TextureFormat;
+
 // This function initializes the fake_unity library and preallocates space
 // for the native plugins. max_plugin_count determines how many plugins can
 // be loaded at the same time, so this is best set to the upper bound of the
@@ -216,6 +232,10 @@ FAKE_UNITY_DEF PFN_vkVoidFunction fake_unity_vulkan_get_instance_proc_address(co
 // called after a successful call to fake_unit_create_vulkan_renderer.
 // Returns non-NULL on success.
 FAKE_UNITY_DEF PFN_vkVoidFunction fake_unity_vulkan_get_device_proc_address(const char *proc_name);
+
+// This implements the C# scripting api function Texture2D.CreateExternalTexture.
+// See https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Texture2D.CreateExternalTexture.html.
+FAKE_UNITY_DEF uint32_t fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUnity_TextureFormat format, bool mip_chain, bool linear, void *native_texture);
 
 #endif // __FAKE_UNITY_INCLUDE__
 
@@ -250,6 +270,22 @@ __fake_unity_vk_physical_device_type_to_string(VkPhysicalDeviceType type)
 #  undef NAME
 
     return str;
+}
+
+static inline VkFormat
+__fake_unity_get_vk_format(FakeUnity_TextureFormat format, bool linear)
+{
+    switch (format)
+    {
+        // case FakeUnity_TextureFormat_Alpha8:
+        // case FakeUnity_TextureFormat_ARGB4444:
+        // case FakeUnity_TextureFormat_RGB24:
+        case FakeUnity_TextureFormat_RGBA32:   return linear ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
+        // case FakeUnity_TextureFormat_ARGB32:
+        // case FakeUnity_TextureFormat_RGB565:
+    }
+
+    return VK_FORMAT_UNDEFINED;
 }
 
 #define ARRAY_ENSURE_SPACE(array, item_type)                                                      \
@@ -948,6 +984,47 @@ fake_unity_vulkan_get_device_proc_address(const char *proc_name)
     }
 
     return NULL;
+}
+
+FAKE_UNITY_DEF uint32_t
+fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUnity_TextureFormat format,
+                                           bool mip_chain, bool linear, void *native_texture)
+{
+    if (__fake_unity_state.renderer_type == kUnityGfxRendererVulkan)
+    {
+        FakeUnityVulkanRenderer *renderer = &__fake_unity_state.renderer.vulkan;
+
+        VkFormat vk_format = __fake_unity_get_vk_format(format, linear);
+
+        if (vk_format == VK_FORMAT_UNDEFINED)
+        {
+            return 0;
+        }
+
+        VkImageViewCreateInfo image_view_create_info;
+        image_view_create_info.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        image_view_create_info.pNext            = NULL;
+        image_view_create_info.flags            = 0;
+        image_view_create_info.image            = *(VkImage *) native_texture;
+        image_view_create_info.viewType         = VK_IMAGE_VIEW_TYPE_2D;
+        image_view_create_info.format           = vk_format;
+        image_view_create_info.components       = { VK_COMPONENT_SWIZZLE_IDENTITY,
+                                                    VK_COMPONENT_SWIZZLE_IDENTITY,
+                                                    VK_COMPONENT_SWIZZLE_IDENTITY,
+                                                    VK_COMPONENT_SWIZZLE_IDENTITY };
+        image_view_create_info.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+        VkImageView image_view;
+
+        if (renderer->vkCreateImageView(renderer->device, &image_view_create_info, NULL, &image_view) != VK_SUCCESS)
+        {
+            // TODO:
+        }
+
+        return 0;
+    }
+
+    return 0;
 }
 
 #undef ARRAY_ENSURE_SPACE
