@@ -15,10 +15,10 @@
 //
 // EXAMPLE
 //
-//   #include "IUnityProfiler.h"
+//   #include "IUnityProfiler.h" // includes IUnityInterface.h
 //   #include "IUnityGraphics.h"
 //   #define VK_NO_PROTOTYPES
-//   #include "IUnityGraphicsVulkan.h"
+//   #include "IUnityGraphicsVulkan.h" // includes vulkan/vulkan.h
 //
 //   #define FAKE_UNITY_IMPLEMENTATION
 //   #include "fake_unity.h"
@@ -203,6 +203,8 @@ FAKE_UNITY_DEF void *fake_unity_native_plugin_get_proc_address(uint32_t plugin_h
 // Initializes the rendering subsystem with vulkan. device_index selects the
 // physical vulkan device to use. If device_index is negative a default
 // device is used. Returns true on success.
+// It should be called after fake_unity_load_native_plugin so the native
+// plugin can hook into the vulkan instance and device creation.
 FAKE_UNITY_DEF bool fake_unity_create_vulkan_renderer(int32_t device_index);
 
 // Returns the address of a vulkan instance procedure. Is only expected to be
