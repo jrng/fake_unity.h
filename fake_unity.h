@@ -887,7 +887,14 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 #define load_function(name)                                                                       \
     do                                                                                            \
     {                                                                                             \
-        renderer->name = (PFN_##name) renderer->vkGetDeviceProcAddr(device, #name);               \
+        if (renderer->vkGetInstanceProcAddr != renderer->loader_vkGetInstanceProcAddr)            \
+        {                                                                                         \
+            renderer->name = (PFN_##name) renderer->vkGetInstanceProcAddr(instance, #name);       \
+        }                                                                                         \
+        else                                                                                      \
+        {                                                                                         \
+            renderer->name = (PFN_##name) renderer->vkGetDeviceProcAddr(device, #name);           \
+        }                                                                                         \
         if (!renderer->name)                                                                      \
         {                                                                                         \
             fprintf(stderr, "[fake_unity] error: could not load vulkan function '" #name "'.\n"); \
