@@ -131,7 +131,8 @@ typedef struct FakeUnityGraphicsDeviceEventCallbacks
 
 #define __FAKE_UNITY_VULKAN_DEVICE_FUNCTIONS(__name__) \
     __name__(vkGetDeviceQueue); \
-    __name__(vkCreateImageView)
+    __name__(vkCreateImageView); \
+    __name__(vkDestroyImageView)
 
 #define declare_function(name) PFN_##name name
 
@@ -161,6 +162,14 @@ typedef struct FakeUnityVulkanRenderer
 
 #undef declare_function
 
+typedef struct FakeUnityTexture
+{
+    int32_t width;
+    int32_t height;
+
+    VkImageView vk_image_view;
+} FakeUnityTexture;
+
 typedef struct FakeUnityState
 {
     UnityGfxRenderer renderer_type;
@@ -173,6 +182,12 @@ typedef struct FakeUnityState
     uint16_t *plugin_generations;
     int32_t free_plugin_count;
     int32_t max_plugin_count;
+
+    FakeUnityTexture *textures;
+    uint16_t *free_texture_indices;
+    uint16_t *texture_generations;
+    int32_t free_texture_count;
+    int32_t max_texture_count;
 
     UnityVulkanInitCallback unity_vulkan_init_callback;
     void *unity_vulkan_init_userdata;
@@ -203,11 +218,13 @@ typedef enum FakeUnity_TextureFormat
     // TODO: all the rest
 } FakeUnity_TextureFormat;
 
+typedef uint32_t FakeUnity_Texture2D;
+
 // This function initializes the fake_unity library and preallocates space
 // for the native plugins. max_plugin_count determines how many plugins can
 // be loaded at the same time, so this is best set to the upper bound of the
 // expected number of plugins. Returns true on success.
-FAKE_UNITY_DEF bool fake_unity_initialize(int32_t max_plugin_count);
+FAKE_UNITY_DEF bool fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count);
 
 // Loads a native plugin from a given filename and calls UnityPluginLoad if
 // available. Returns a non zero plugin handle on success and zero on error.
@@ -235,7 +252,9 @@ FAKE_UNITY_DEF PFN_vkVoidFunction fake_unity_vulkan_get_device_proc_address(cons
 
 // This implements the C# scripting api function Texture2D.CreateExternalTexture.
 // See https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Texture2D.CreateExternalTexture.html.
-FAKE_UNITY_DEF uint32_t fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUnity_TextureFormat format, bool mip_chain, bool linear, void *native_texture);
+FAKE_UNITY_DEF FakeUnity_Texture2D fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUnity_TextureFormat format, bool mip_chain, bool linear, void *native_texture);
+
+FAKE_UNITY_DEF void fake_unity_Texture2D_Destroy(FakeUnity_Texture2D texture_handle);
 
 #endif // __FAKE_UNITY_INCLUDE__
 
@@ -560,7 +579,7 @@ UnityGraphicsVulkan_AccessTextureByID(UnityTextureID texture_id, const VkImageSu
 }
 
 FAKE_UNITY_DEF bool
-fake_unity_initialize(int32_t max_plugin_count)
+fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count)
 {
     __fake_unity_state.renderer_type = kUnityGfxRendererNull;
 
@@ -601,24 +620,48 @@ fake_unity_initialize(int32_t max_plugin_count)
     IUnityInterfaces_RegisterInterfaceSplit(0x7CBA0A9CA4DDB544ULL, 0x8C5AD4926EB17B11ULL, &__fake_unity_state.unity_graphics);
     IUnityInterfaces_RegisterInterfaceSplit(0x95355348d4ef4e11ULL, 0x9789313dfcffcc87ULL, &__fake_unity_state.unity_graphics_vulkan);
 
-    if (max_plugin_count <= 0)
     {
-        max_plugin_count = 8;
+        if (max_plugin_count <= 0)
+        {
+            max_plugin_count = 8;
+        }
+
+        __fake_unity_state.plugins = (FakeUnityNativePlugin *) malloc(max_plugin_count * sizeof(FakeUnityNativePlugin));
+        __fake_unity_state.free_plugin_indices = (uint16_t *) malloc(max_plugin_count * sizeof(uint16_t));
+        __fake_unity_state.plugin_generations = (uint16_t *) malloc(max_plugin_count * sizeof(uint16_t));
+
+        __fake_unity_state.max_plugin_count = max_plugin_count;
+        __fake_unity_state.free_plugin_count = max_plugin_count;
+
+        int32_t index = max_plugin_count;
+
+        for (int32_t i = 0; i < max_plugin_count; i += 1)
+        {
+            __fake_unity_state.plugin_generations[i] = 1;
+            __fake_unity_state.free_plugin_indices[i] = --index;
+        }
     }
 
-    __fake_unity_state.plugins = (FakeUnityNativePlugin *) malloc(max_plugin_count * sizeof(FakeUnityNativePlugin));
-    __fake_unity_state.free_plugin_indices = (uint16_t *) malloc(max_plugin_count * sizeof(uint16_t));
-    __fake_unity_state.plugin_generations = (uint16_t *) malloc(max_plugin_count * sizeof(uint16_t));
-
-    __fake_unity_state.max_plugin_count = max_plugin_count;
-    __fake_unity_state.free_plugin_count = max_plugin_count;
-
-    int32_t index = max_plugin_count;
-
-    for (int32_t i = 0; i < max_plugin_count; i += 1)
     {
-        __fake_unity_state.plugin_generations[i] = 1;
-        __fake_unity_state.free_plugin_indices[i] = --index;
+        if (max_texture_count <= 0)
+        {
+            max_texture_count = 8;
+        }
+
+        __fake_unity_state.textures = (FakeUnityTexture *) malloc(max_texture_count * sizeof(FakeUnityTexture));
+        __fake_unity_state.free_texture_indices = (uint16_t *) malloc(max_texture_count * sizeof(uint16_t));
+        __fake_unity_state.texture_generations = (uint16_t *) malloc(max_texture_count * sizeof(uint16_t));
+
+        __fake_unity_state.max_texture_count = max_texture_count;
+        __fake_unity_state.free_texture_count = max_texture_count;
+
+        int32_t index = max_texture_count;
+
+        for (int32_t i = 0; i < max_texture_count; i += 1)
+        {
+            __fake_unity_state.texture_generations[i] = 1;
+            __fake_unity_state.free_texture_indices[i] = --index;
+        }
     }
 
     return true;
@@ -986,11 +1029,14 @@ fake_unity_vulkan_get_device_proc_address(const char *proc_name)
     return NULL;
 }
 
-FAKE_UNITY_DEF uint32_t
+FAKE_UNITY_DEF FakeUnity_Texture2D
 fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUnity_TextureFormat format,
                                            bool mip_chain, bool linear, void *native_texture)
 {
-    if (__fake_unity_state.renderer_type == kUnityGfxRendererVulkan)
+    FakeUnity_Texture2D result = 0;
+
+    if ((__fake_unity_state.free_texture_count > 0) &&
+        (__fake_unity_state.renderer_type == kUnityGfxRendererVulkan))
     {
         FakeUnityVulkanRenderer *renderer = &__fake_unity_state.renderer.vulkan;
 
@@ -1018,13 +1064,48 @@ fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUn
 
         if (renderer->vkCreateImageView(renderer->device, &image_view_create_info, NULL, &image_view) != VK_SUCCESS)
         {
-            // TODO:
+            return 0;
         }
 
-        return 0;
+        uint16_t index = __fake_unity_state.free_texture_indices[--__fake_unity_state.free_texture_count];
+        uint16_t generation = __fake_unity_state.texture_generations[index];
+
+        result = ((uint32_t) generation << 16) | (uint32_t) index;
+
+        FakeUnityTexture *texture = __fake_unity_state.textures + index;
+
+        texture->width = width;
+        texture->height = height;
+        texture->vk_image_view = image_view;
     }
 
-    return 0;
+    return result;
+}
+
+FAKE_UNITY_DEF void
+fake_unity_Texture2D_Destroy(FakeUnity_Texture2D texture_handle)
+{
+    uint16_t index = (uint16_t) (texture_handle & 0xFFFF);
+    uint16_t generation = (uint16_t) ((texture_handle >> 16) & 0xFFFF);
+
+    if (__fake_unity_state.texture_generations[index] == generation)
+    {
+        FakeUnityTexture *texture = __fake_unity_state.textures + index;
+
+        if (__fake_unity_state.renderer_type == kUnityGfxRendererVulkan)
+        {
+            FakeUnityVulkanRenderer *renderer = &__fake_unity_state.renderer.vulkan;
+            renderer->vkDestroyImageView(renderer->device, texture->vk_image_view, NULL);
+        }
+
+        if (__fake_unity_state.texture_generations[index] == 0xFFFF)
+        {
+            __fake_unity_state.texture_generations[index] = 0;
+        }
+
+        __fake_unity_state.texture_generations[index] += 1;
+        __fake_unity_state.free_texture_indices[__fake_unity_state.free_texture_count++] = index;
+    }
 }
 
 #undef ARRAY_ENSURE_SPACE
