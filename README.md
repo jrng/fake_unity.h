@@ -6,6 +6,8 @@ do unit testing without needing a full unity project and the whole engine.
 ## How to use
 
 ```c
+#include <stddef.h>
+
 #include "IUnityProfiler.h" // includes IUnityInterface.h
 #include "IUnityGraphics.h"
 #define VK_NO_PROTOTYPES
@@ -20,7 +22,7 @@ PFN_MyNativeFunction MyNativeFunction;
 
 int main(void)
 {
-    fake_unity_initialize(8);
+    fake_unity_initialize(8, 4);
 #if FAKE_UNITY_PLATFORM_WINDOWS
     uint32_t plugin = fake_unity_load_native_plugin("libNativePlugin.dll");
 #else

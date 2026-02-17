@@ -15,6 +15,8 @@
 //
 // EXAMPLE
 //
+//   #include <stddef.h>
+//
 //   #include "IUnityProfiler.h" // includes IUnityInterface.h
 //   #include "IUnityGraphics.h"
 //   #define VK_NO_PROTOTYPES
@@ -29,7 +31,7 @@
 //
 //   int main(void)
 //   {
-//       fake_unity_initialize(8);
+//       fake_unity_initialize(8, 4);
 //   #if FAKE_UNITY_PLATFORM_WINDOWS
 //       uint32_t plugin = fake_unity_load_native_plugin("libNativePlugin.dll");
 //   #else
@@ -223,7 +225,8 @@ typedef uint32_t FakeUnity_Texture2D;
 // This function initializes the fake_unity library and preallocates space
 // for the native plugins. max_plugin_count determines how many plugins can
 // be loaded at the same time, so this is best set to the upper bound of the
-// expected number of plugins. Returns true on success.
+// expected number of plugins. Same for the max_texture_count which determines
+// how many external textures can be created. Returns true on success.
 FAKE_UNITY_DEF bool fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count);
 
 // Loads a native plugin from a given filename and calls UnityPluginLoad if
