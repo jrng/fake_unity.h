@@ -129,6 +129,7 @@ typedef struct FakeUnityGraphicsDeviceEventCallbacks
     __name__(vkGetDeviceProcAddr); \
     __name__(vkEnumeratePhysicalDevices); \
     __name__(vkGetPhysicalDeviceProperties); \
+    __name__(vkGetPhysicalDeviceQueueFamilyProperties); \
     __name__(vkCreateDevice)
 
 #define __FAKE_UNITY_VULKAN_DEVICE_FUNCTIONS(__name__) \
@@ -308,6 +309,40 @@ __fake_unity_get_vk_format(FakeUnity_TextureFormat format, bool linear)
     }
 
     return VK_FORMAT_UNDEFINED;
+}
+
+// The order in this table matters for preference.
+// They are ordered from most to least preferable.
+static const VkPhysicalDeviceType __fake_unity_preferred_vk_device_types[] = {
+    VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU,
+    VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU,
+    VK_PHYSICAL_DEVICE_TYPE_CPU,
+};
+
+static inline uint32_t
+__fake_unity_get_prefer_index_from_vk_device_type(VkPhysicalDeviceType device_type)
+{
+    uint32_t result = UINT32_MAX;
+
+    for (size_t i = 0; i < (sizeof(__fake_unity_preferred_vk_device_types) / sizeof(__fake_unity_preferred_vk_device_types[0])); i += 1)
+    {
+        if (__fake_unity_preferred_vk_device_types[i] == device_type)
+        {
+            result = (uint32_t) i;
+            break;
+        }
+    }
+
+    return result;
+}
+
+static inline bool
+__fake_unity_vk_device_type_is_better(VkPhysicalDeviceType a, VkPhysicalDeviceType b)
+{
+    uint32_t a_prefer_index = __fake_unity_get_prefer_index_from_vk_device_type(a);
+    uint32_t b_prefer_index = __fake_unity_get_prefer_index_from_vk_device_type(b);
+
+    return (a_prefer_index < b_prefer_index);
 }
 
 #define ARRAY_ENSURE_SPACE(array, item_type)                                                      \
@@ -898,6 +933,9 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
         return false;
     }
 
+    int32_t best_device_index = -1;
+    VkPhysicalDeviceType best_device_type = VK_PHYSICAL_DEVICE_TYPE_OTHER;
+
     fprintf(stderr, "[fake_unity] %u physical devices:\n", physical_device_count);
 
     for (uint32_t i = 0; i < physical_device_count; i += 1)
@@ -908,12 +946,27 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
         fprintf(stderr, "[fake_unity] [%u] %s (type = %s) (api version = %u.%u.%u)\n",
                         i, properties.deviceName, __fake_unity_vk_physical_device_type_to_string(properties.deviceType),
                         VK_API_VERSION_MAJOR(properties.apiVersion), VK_API_VERSION_MINOR(properties.apiVersion), VK_API_VERSION_PATCH(properties.apiVersion));
+
+        if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_OTHER)
+        {
+            continue;
+        }
+
+        if (VK_API_VERSION_MAJOR(properties.apiVersion) < 1)
+        {
+            continue;
+        }
+
+        if (__fake_unity_vk_device_type_is_better(properties.deviceType, best_device_type))
+        {
+            best_device_type = properties.deviceType;
+            best_device_index = i;
+        }
     }
 
     if ((device_index < 0) || (device_index >= (int32_t) physical_device_count))
     {
-        // TODO: find best device
-        device_index = 0;
+        device_index = best_device_index;
     }
 
     if ((device_index < 0) || (device_index >= (int32_t) physical_device_count))
@@ -932,7 +985,33 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     renderer->physical_device = physical_device;
 
-    uint32_t graphics_queue_index = 0; // TODO: correct index
+    uint32_t queue_family_count = 0;
+
+    renderer->vkGetPhysicalDeviceQueueFamilyProperties(renderer->physical_device, &queue_family_count, NULL);
+
+    VkQueueFamilyProperties *queue_families = (VkQueueFamilyProperties *) malloc(sizeof(*queue_families) * queue_family_count);
+
+    renderer->vkGetPhysicalDeviceQueueFamilyProperties(renderer->physical_device, &queue_family_count, queue_families);
+
+    uint32_t graphics_queue_index = UINT32_MAX;
+
+    for (uint32_t i = 0; i < queue_family_count; i += 1)
+    {
+        if ((queue_families[i].queueCount > 0) && (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT))
+        {
+            graphics_queue_index = i;
+            break;
+        }
+    }
+
+    free(queue_families);
+
+    if (graphics_queue_index >= queue_family_count)
+    {
+        fprintf(stderr, "[fake_unity] error: could not find a vulkan queue with graphics cababilities.\n");
+        CLOSE_VULKAN_LOADER(renderer->loader_handle);
+        return false;
+    }
 
     float queue_priority = 1.0f;
 
