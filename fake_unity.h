@@ -29,7 +29,7 @@
 //
 //   PFN_MyNativeFunction MyNativeFunction;
 //
-//   int main(void)
+//   int main()
 //   {
 //       fake_unity_initialize(8, 4);
 //   #if FAKE_UNITY_PLATFORM_WINDOWS
@@ -196,7 +196,9 @@ typedef struct FakeUnityState
     void *unity_vulkan_init_userdata;
 
     IUnityInterfaces unity_interfaces;
+#if !defined(FAKE_UNITY_NO_PROFILER)
     IUnityProfiler unity_profiler;
+#endif
     IUnityGraphics unity_graphics;
     IUnityGraphicsVulkan unity_graphics_vulkan;
 
@@ -418,6 +420,8 @@ IUnityInterfaces_RegisterInterface(UnityInterfaceGUID guid, IUnityInterface *ptr
     return IUnityInterfaces_RegisterInterfaceSplit(guid.m_GUIDHigh, guid.m_GUIDLow, ptr);
 }
 
+#if !defined(FAKE_UNITY_NO_PROFILER)
+
 static void
 IUnityProfiler_EmitEvent(const UnityProfilerMarkerDesc* markerDesc, UnityProfilerMarkerEventType eventType, uint16_t eventDataCount, const UnityProfilerMarkerData* eventData)
 {
@@ -465,6 +469,8 @@ IUnityProfiler_UnregisterThread(UnityProfilerThreadId threadId)
     fprintf(stderr, "[fake_unity] TODO: UnregisterThread\n");
     return 0;
 }
+
+#endif
 
 static UnityGfxRenderer
 IUnityGraphics_GetRenderer()
@@ -626,6 +632,7 @@ fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count)
     __fake_unity_state.unity_interfaces.GetInterfaceSplit      = IUnityInterfaces_GetInterfaceSplit;
     __fake_unity_state.unity_interfaces.RegisterInterfaceSplit = IUnityInterfaces_RegisterInterfaceSplit;
 
+#if !defined(FAKE_UNITY_NO_PROFILER)
     __fake_unity_state.unity_profiler.EmitEvent             = IUnityProfiler_EmitEvent;
     __fake_unity_state.unity_profiler.IsEnabled             = IUnityProfiler_IsEnabled;
     __fake_unity_state.unity_profiler.IsAvailable           = IUnityProfiler_IsAvailable;
@@ -634,10 +641,15 @@ fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count)
     __fake_unity_state.unity_profiler.RegisterThread        = IUnityProfiler_RegisterThread;
     __fake_unity_state.unity_profiler.UnregisterThread      = IUnityProfiler_UnregisterThread;
 
+    IUnityInterfaces_RegisterInterfaceSplit(0x2CE79ED8316A4833ULL, 0x87076B2013E1571FULL, &__fake_unity_state.unity_profiler);
+#endif
+
     __fake_unity_state.unity_graphics.GetRenderer                   = IUnityGraphics_GetRenderer;
     __fake_unity_state.unity_graphics.RegisterDeviceEventCallback   = IUnityGraphics_RegisterDeviceEventCallback;
     __fake_unity_state.unity_graphics.UnregisterDeviceEventCallback = IUnityGraphics_UnregisterDeviceEventCallback;
     __fake_unity_state.unity_graphics.ReserveEventIDRange           = IUnityGraphics_ReserveEventIDRange;
+
+    IUnityInterfaces_RegisterInterfaceSplit(0x7CBA0A9CA4DDB544ULL, 0x8C5AD4926EB17B11ULL, &__fake_unity_state.unity_graphics);
 
     __fake_unity_state.unity_graphics_vulkan.InterceptInitialization          = UnityGraphicsVulkan_InterceptInitialization;
     __fake_unity_state.unity_graphics_vulkan.InterceptVulkanAPI               = UnityGraphicsVulkan_InterceptVulkanAPI;
@@ -654,8 +666,6 @@ fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count)
     __fake_unity_state.unity_graphics_vulkan.ConfigureSwapchain               = UnityGraphicsVulkan_ConfigureSwapchain;
     __fake_unity_state.unity_graphics_vulkan.AccessTextureByID                = UnityGraphicsVulkan_AccessTextureByID;
 
-    IUnityInterfaces_RegisterInterfaceSplit(0x2CE79ED8316A4833ULL, 0x87076B2013E1571FULL, &__fake_unity_state.unity_profiler);
-    IUnityInterfaces_RegisterInterfaceSplit(0x7CBA0A9CA4DDB544ULL, 0x8C5AD4926EB17B11ULL, &__fake_unity_state.unity_graphics);
     IUnityInterfaces_RegisterInterfaceSplit(0x95355348d4ef4e11ULL, 0x9789313dfcffcc87ULL, &__fake_unity_state.unity_graphics_vulkan);
 
     {
@@ -1130,17 +1140,21 @@ fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUn
         }
 
         VkImageViewCreateInfo image_view_create_info;
-        image_view_create_info.sType            = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        image_view_create_info.pNext            = NULL;
-        image_view_create_info.flags            = 0;
-        image_view_create_info.image            = *(VkImage *) native_texture;
-        image_view_create_info.viewType         = VK_IMAGE_VIEW_TYPE_2D;
-        image_view_create_info.format           = vk_format;
-        image_view_create_info.components       = { VK_COMPONENT_SWIZZLE_IDENTITY,
-                                                    VK_COMPONENT_SWIZZLE_IDENTITY,
-                                                    VK_COMPONENT_SWIZZLE_IDENTITY,
-                                                    VK_COMPONENT_SWIZZLE_IDENTITY };
-        image_view_create_info.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        image_view_create_info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        image_view_create_info.pNext                           = NULL;
+        image_view_create_info.flags                           = 0;
+        image_view_create_info.image                           = *(VkImage *) native_texture;
+        image_view_create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+        image_view_create_info.format                          = vk_format;
+        image_view_create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        image_view_create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        image_view_create_info.subresourceRange.baseMipLevel   = 0;
+        image_view_create_info.subresourceRange.levelCount     = 1;
+        image_view_create_info.subresourceRange.baseArrayLayer = 0;
+        image_view_create_info.subresourceRange.layerCount     = 1;
 
         VkImageView image_view;
 
