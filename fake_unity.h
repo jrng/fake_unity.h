@@ -122,7 +122,6 @@ typedef struct FakeUnityGraphicsDeviceEventCallbacks
 } FakeUnityGraphicsDeviceEventCallbacks;
 
 #define __FAKE_UNITY_VULKAN_GLOBAL_FUNCTIONS(__name__) \
-    __name__(vkEnumerateInstanceVersion); \
     __name__(vkCreateInstance)
 
 #define __FAKE_UNITY_VULKAN_INSTANCE_FUNCTIONS(__name__) \
@@ -156,6 +155,7 @@ typedef struct FakeUnityVulkanRenderer
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
     PFN_vkGetInstanceProcAddr loader_vkGetInstanceProcAddr;
 
+    PFN_vkEnumerateInstanceVersion vkEnumerateInstanceVersion;
     __FAKE_UNITY_VULKAN_GLOBAL_FUNCTIONS(declare_function);
 
     __FAKE_UNITY_VULKAN_INSTANCE_FUNCTIONS(declare_function);
@@ -512,6 +512,11 @@ IUnityGraphics_ReserveEventIDRange(int count)
 static bool
 UnityGraphicsVulkan_InterceptInitialization(UnityVulkanInitCallback func, void *userdata)
 {
+    if (__fake_unity_state.renderer_type != kUnityGfxRendererNull)
+    {
+        return false;
+    }
+
     __fake_unity_state.unity_vulkan_init_callback = func;
     __fake_unity_state.unity_vulkan_init_userdata = userdata;
     return true;
@@ -856,6 +861,8 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
         }
     }
 
+    renderer->vkEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion) renderer->vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion");
+
 #define load_function(name)                                                                       \
     do                                                                                            \
     {                                                                                             \
@@ -873,7 +880,22 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 #undef load_function
 
     uint32_t vulkan_instance_version = VK_API_VERSION_1_0;
-    renderer->vkEnumerateInstanceVersion(&vulkan_instance_version);
+    uint32_t vulkan_preferred_instance_version = VK_API_VERSION_1_0;
+
+    if (renderer->vkEnumerateInstanceVersion)
+    {
+        if (renderer->vkEnumerateInstanceVersion(&vulkan_instance_version) == VK_SUCCESS)
+        {
+            if (vulkan_instance_version > VK_API_VERSION_1_1)
+            {
+                vulkan_preferred_instance_version = VK_API_VERSION_1_1;
+            }
+            else
+            {
+                vulkan_preferred_instance_version = vulkan_instance_version;
+            }
+        }
+    }
 
     fprintf(stderr, "[fake_unity] loaded vulkan library with instance version %u.%u.%u\n",
                     VK_API_VERSION_MAJOR(vulkan_instance_version),
@@ -887,7 +909,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
     application_info.applicationVersion = 1;
     application_info.pEngineName        = "Unity";
     application_info.engineVersion      = 1;
-    application_info.apiVersion         = VK_API_VERSION_1_0;
+    application_info.apiVersion         = vulkan_preferred_instance_version;
 
     VkInstanceCreateInfo instance_create_info;
     instance_create_info.sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
