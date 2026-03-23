@@ -1,4 +1,4 @@
-// fake_unity.h - MIT License
+// SPDX-License-Identifier: MIT
 // See end of file for full license
 
 // fake_unity.h is a single header library to simulate the minimum required
