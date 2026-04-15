@@ -276,6 +276,62 @@ static FakeUnityState __fake_unity_state;
 #endif
 
 static inline const char *
+__fake_unity_vk_result_to_string(VkResult result)
+{
+    const char *str = "<unknown-vk-result>";
+
+#define NAME(name) case name: str = #name; break
+
+    switch (result)
+    {
+        NAME(VK_SUCCESS);
+        NAME(VK_NOT_READY);
+        NAME(VK_TIMEOUT);
+        NAME(VK_EVENT_SET);
+        NAME(VK_EVENT_RESET);
+        NAME(VK_INCOMPLETE);
+        NAME(VK_ERROR_OUT_OF_HOST_MEMORY);
+        NAME(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+        NAME(VK_ERROR_INITIALIZATION_FAILED);
+        NAME(VK_ERROR_DEVICE_LOST);
+        NAME(VK_ERROR_MEMORY_MAP_FAILED);
+        NAME(VK_ERROR_LAYER_NOT_PRESENT);
+        NAME(VK_ERROR_EXTENSION_NOT_PRESENT);
+        NAME(VK_ERROR_FEATURE_NOT_PRESENT);
+        NAME(VK_ERROR_INCOMPATIBLE_DRIVER);
+        NAME(VK_ERROR_TOO_MANY_OBJECTS);
+        NAME(VK_ERROR_FORMAT_NOT_SUPPORTED);
+        NAME(VK_ERROR_FRAGMENTED_POOL);
+        // VK_ERROR_UNKNOWN was only defined in the headers starting with version 1.2.13
+        case ((VkResult) -13): str = "VK_ERROR_UNKNOWN"; break;
+        default: break;
+    }
+
+#undef NAME
+
+    return str;
+}
+
+static inline const char *
+__fake_unity_vk_format_to_string(VkFormat format)
+{
+    const char *str = "<unknown-vk-format>";
+
+#  define NAME(name) case name: str = #name; break
+
+    switch (format)
+    {
+        NAME(VK_FORMAT_R8G8B8A8_UNORM);
+        NAME(VK_FORMAT_R8G8B8A8_SRGB);
+        default: break;
+    }
+
+#  undef NAME
+
+    return str;
+}
+
+static inline const char *
 __fake_unity_vk_physical_device_type_to_string(VkPhysicalDeviceType type)
 {
     const char *str = "<unknown-vk-physical-device-type>";
@@ -879,12 +935,16 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
 #undef load_function
 
+    VkResult vk_result;
+
     uint32_t vulkan_instance_version = VK_API_VERSION_1_0;
     uint32_t vulkan_preferred_instance_version = VK_API_VERSION_1_0;
 
     if (renderer->vkEnumerateInstanceVersion)
     {
-        if (renderer->vkEnumerateInstanceVersion(&vulkan_instance_version) == VK_SUCCESS)
+        vk_result = renderer->vkEnumerateInstanceVersion(&vulkan_instance_version);
+
+        if (vk_result == VK_SUCCESS)
         {
             if (vulkan_instance_version > VK_API_VERSION_1_1)
             {
@@ -894,6 +954,11 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
             {
                 vulkan_preferred_instance_version = vulkan_instance_version;
             }
+        }
+        else
+        {
+            fprintf(stderr, "[fake_unity] warning: vkEnumerateInstanceVersion failed -> %s\n",
+                            __fake_unity_vk_result_to_string(vk_result));
         }
     }
 
@@ -923,9 +988,12 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     VkInstance instance;
 
-    if (renderer->vkCreateInstance(&instance_create_info, 0, &instance) != VK_SUCCESS)
+    vk_result = renderer->vkCreateInstance(&instance_create_info, 0, &instance);
+
+    if (vk_result != VK_SUCCESS)
     {
-        fprintf(stderr, "[fake_unity] error: vkCreateInstance failed.\n");
+        fprintf(stderr, "[fake_unity] error: vkCreateInstance failed -> %s\n",
+                        __fake_unity_vk_result_to_string(vk_result));
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
     }
@@ -950,16 +1018,24 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     uint32_t physical_device_count = 0;
 
-    if (renderer->vkEnumeratePhysicalDevices(instance, &physical_device_count, 0) != VK_SUCCESS)
+    vk_result = renderer->vkEnumeratePhysicalDevices(instance, &physical_device_count, 0);
+
+    if (vk_result != VK_SUCCESS)
     {
+        fprintf(stderr, "[fake_unity] error: vkEnumeratePhysicalDevices.0 failed -> %s\n",
+                        __fake_unity_vk_result_to_string(vk_result));
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
     }
 
     VkPhysicalDevice *physical_devices = (VkPhysicalDevice *) malloc(sizeof(*physical_devices) * physical_device_count);
 
-    if (renderer->vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_devices) != VK_SUCCESS)
+    vk_result = renderer->vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_devices);
+
+    if (vk_result != VK_SUCCESS)
     {
+        fprintf(stderr, "[fake_unity] error: vkEnumeratePhysicalDevices.1 failed -> %s\n",
+                        __fake_unity_vk_result_to_string(vk_result));
         free(physical_devices);
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
@@ -1069,8 +1145,12 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     VkDevice device;
 
-    if (renderer->vkCreateDevice(physical_device, &device_create_info, 0, &device) != VK_SUCCESS)
+    vk_result = renderer->vkCreateDevice(physical_device, &device_create_info, 0, &device);
+
+    if (vk_result != VK_SUCCESS)
     {
+        fprintf(stderr, "[fake_unity] error: vkCreateDevice failed -> %s\n",
+                        __fake_unity_vk_result_to_string(vk_result));
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
     }
@@ -1178,10 +1258,17 @@ fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUn
         image_view_create_info.subresourceRange.baseArrayLayer = 0;
         image_view_create_info.subresourceRange.layerCount     = 1;
 
+        VkResult vk_result;
+
         VkImageView image_view;
 
-        if (renderer->vkCreateImageView(renderer->device, &image_view_create_info, NULL, &image_view) != VK_SUCCESS)
+        vk_result = renderer->vkCreateImageView(renderer->device, &image_view_create_info, NULL, &image_view);
+
+        if (vk_result != VK_SUCCESS)
         {
+            fprintf(stderr, "[fake_unity] error: vkCreateImageView(width = %d, height = %d, format = %s, image = %p) failed -> %s\n",
+                            width, height, __fake_unity_vk_format_to_string(vk_format), *(VkImage *) native_texture,
+                            __fake_unity_vk_result_to_string(vk_result));
             return 0;
         }
 
