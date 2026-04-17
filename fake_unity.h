@@ -880,7 +880,13 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
     FreeLibrary(handle); \
     handle = 0
 #elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
+#  if FAKE_UNITY_PLATFORM_ANDROID
     renderer->loader_handle = dlopen("libvulkan.so", RTLD_NOW);
+#  elif FAKE_UNITY_PLATFORM_LINUX
+    renderer->loader_handle = dlopen("libvulkan.so.1", RTLD_NOW);
+#  elif FAKE_UNITY_PLATFORM_MACOS
+    renderer->loader_handle = dlopen("libvulkan.1.dylib", RTLD_NOW);
+#  endif
 
     if (!renderer->loader_handle)
     {
