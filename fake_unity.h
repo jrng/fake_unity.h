@@ -1350,6 +1350,7 @@ fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUn
                 texture->vk_image_view = image_view;
             } break;
 #endif
+            default: break;
         }
     }
 
@@ -1375,6 +1376,7 @@ fake_unity_Texture2D_Destroy(FakeUnity_Texture2D texture_handle)
                 renderer->vkDestroyImageView(renderer->device, texture->vk_image_view, NULL);
             } break;
 #endif
+            default: break;
         }
 
         if (__fake_unity_state.texture_generations[index] == 0xFFFF)
