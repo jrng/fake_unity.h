@@ -15,6 +15,7 @@ do unit testing without needing a full unity project and the whole engine.
 #include "IUnityGraphicsVulkan.h" // includes vulkan/vulkan.h
 
 #define FAKE_UNITY_IMPLEMENTATION
+#define FAKE_UNITY_GRAPHICS_VULKAN
 #include "fake_unity.h"
 
 typedef int32_t (*PFN_MyNativeFunction)(int32_t a, int32_t b);
@@ -75,6 +76,7 @@ typedef struct UnityVulkanSwapchainConfiguration UnityVulkanSwapchainConfigurati
 
 #define FAKE_UNITY_IMPLEMENTATION
 #define FAKE_UNITY_NO_PROFILER
+#define FAKE_UNITY_GRAPHICS_VULKAN
 #include "fake_unity.h"
 
 typedef int32_t (*PFN_MyNativeFunction)(int32_t a, int32_t b);

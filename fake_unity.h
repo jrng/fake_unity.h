@@ -122,30 +122,32 @@ typedef struct FakeUnityGraphicsDeviceEventCallbacks
     IUnityGraphicsDeviceEventCallback *items;
 } FakeUnityGraphicsDeviceEventCallbacks;
 
-#define __FAKE_UNITY_VULKAN_GLOBAL_FUNCTIONS(__name__) \
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
+
+#  define __FAKE_UNITY_VULKAN_GLOBAL_FUNCTIONS(__name__) \
     __name__(vkCreateInstance)
 
-#define __FAKE_UNITY_VULKAN_INSTANCE_FUNCTIONS(__name__) \
+#  define __FAKE_UNITY_VULKAN_INSTANCE_FUNCTIONS(__name__) \
     __name__(vkGetDeviceProcAddr); \
     __name__(vkEnumeratePhysicalDevices); \
     __name__(vkGetPhysicalDeviceProperties); \
     __name__(vkGetPhysicalDeviceQueueFamilyProperties); \
     __name__(vkCreateDevice)
 
-#define __FAKE_UNITY_VULKAN_DEVICE_FUNCTIONS(__name__) \
+#  define __FAKE_UNITY_VULKAN_DEVICE_FUNCTIONS(__name__) \
     __name__(vkGetDeviceQueue); \
     __name__(vkCreateImageView); \
     __name__(vkDestroyImageView)
 
-#define declare_function(name) PFN_##name name
+#  define declare_function(name) PFN_##name name
 
 typedef struct FakeUnityVulkanRenderer
 {
-#if FAKE_UNITY_PLATFORM_WINDOWS
+#  if FAKE_UNITY_PLATFORM_WINDOWS
     HMODULE loader_handle;
-#elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
+#  elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
     void *loader_handle;
-#endif
+#  endif
 
     VkInstance instance;
     VkPhysicalDevice physical_device;
@@ -164,14 +166,18 @@ typedef struct FakeUnityVulkanRenderer
     __FAKE_UNITY_VULKAN_DEVICE_FUNCTIONS(declare_function);
 } FakeUnityVulkanRenderer;
 
-#undef declare_function
+#  undef declare_function
+
+#endif
 
 typedef struct FakeUnityTexture
 {
     int32_t width;
     int32_t height;
 
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
     VkImageView vk_image_view;
+#endif
 } FakeUnityTexture;
 
 typedef struct FakeUnityState
@@ -193,8 +199,10 @@ typedef struct FakeUnityState
     int32_t free_texture_count;
     int32_t max_texture_count;
 
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
     UnityVulkanInitCallback unity_vulkan_init_callback;
     void *unity_vulkan_init_userdata;
+#endif
 
     IUnityInterfaces unity_interfaces;
 #if !defined(FAKE_UNITY_NO_LOG)
@@ -204,11 +212,15 @@ typedef struct FakeUnityState
     IUnityProfiler unity_profiler;
 #endif
     IUnityGraphics unity_graphics;
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
     IUnityGraphicsVulkan unity_graphics_vulkan;
+#endif
 
     union FakeUnityRenderer
     {
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
         FakeUnityVulkanRenderer vulkan;
+#endif
     } renderer;
 } FakeUnityState;
 
@@ -243,6 +255,8 @@ FAKE_UNITY_DEF uint32_t fake_unity_load_native_plugin(const char *filename);
 // Retrieves the pointer to a function from the native plugin.
 FAKE_UNITY_DEF void *fake_unity_native_plugin_get_proc_address(uint32_t plugin_handle, const char *proc_name);
 
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
+
 // Initializes the rendering subsystem with vulkan. device_index selects the
 // physical vulkan device to use. If device_index is negative a default
 // device is used. Returns true on success.
@@ -259,6 +273,8 @@ FAKE_UNITY_DEF PFN_vkVoidFunction fake_unity_vulkan_get_instance_proc_address(co
 // called after a successful call to fake_unit_create_vulkan_renderer.
 // Returns non-NULL on success.
 FAKE_UNITY_DEF PFN_vkVoidFunction fake_unity_vulkan_get_device_proc_address(const char *proc_name);
+
+#endif
 
 // This implements the C# scripting api function Texture2D.CreateExternalTexture.
 // See https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Texture2D.CreateExternalTexture.html.
@@ -278,6 +294,8 @@ static FakeUnityState __fake_unity_state;
 #if FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
 #  include <dlfcn.h>
 #endif
+
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
 
 static inline const char *
 __fake_unity_vk_result_to_string(VkResult result)
@@ -406,6 +424,8 @@ __fake_unity_vk_device_type_is_better(VkPhysicalDeviceType a, VkPhysicalDeviceTy
 
     return (a_prefer_index < b_prefer_index);
 }
+
+#endif
 
 #define ARRAY_ENSURE_SPACE(array, item_type)                                                      \
     do {                                                                                          \
@@ -585,6 +605,8 @@ IUnityGraphics_ReserveEventIDRange(int count)
     return 0;
 }
 
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
+
 static bool
 UnityGraphicsVulkan_InterceptInitialization(UnityVulkanInitCallback func, void *userdata)
 {
@@ -703,6 +725,8 @@ UnityGraphicsVulkan_AccessTextureByID(UnityTextureID texture_id, const VkImageSu
     return false;
 }
 
+#endif
+
 FAKE_UNITY_DEF bool
 fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count)
 {
@@ -738,6 +762,7 @@ fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count)
 
     IUnityInterfaces_RegisterInterfaceSplit(0x7CBA0A9CA4DDB544ULL, 0x8C5AD4926EB17B11ULL, &__fake_unity_state.unity_graphics);
 
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
     __fake_unity_state.unity_graphics_vulkan.InterceptInitialization          = UnityGraphicsVulkan_InterceptInitialization;
     __fake_unity_state.unity_graphics_vulkan.InterceptVulkanAPI               = UnityGraphicsVulkan_InterceptVulkanAPI;
     __fake_unity_state.unity_graphics_vulkan.ConfigureEvent                   = UnityGraphicsVulkan_ConfigureEvent;
@@ -754,6 +779,7 @@ fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count)
     __fake_unity_state.unity_graphics_vulkan.AccessTextureByID                = UnityGraphicsVulkan_AccessTextureByID;
 
     IUnityInterfaces_RegisterInterfaceSplit(0x95355348d4ef4e11ULL, 0x9789313dfcffcc87ULL, &__fake_unity_state.unity_graphics_vulkan);
+#endif
 
     {
         if (max_plugin_count <= 0)
@@ -876,6 +902,8 @@ fake_unity_native_plugin_get_proc_address(uint32_t plugin_handle, const char *pr
     return result;
 }
 
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
+
 FAKE_UNITY_DEF bool
 fake_unity_create_vulkan_renderer(int32_t device_index)
 {
@@ -891,7 +919,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
         return false;
     }
 
-#if FAKE_UNITY_PLATFORM_WINDOWS
+#  if FAKE_UNITY_PLATFORM_WINDOWS
     renderer->loader_handle = LoadLibraryA("vulkan-1.dll");
 
     if (!renderer->loader_handle)
@@ -902,17 +930,17 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     renderer->loader_vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) GetProcAddress(renderer->loader_handle, "vkGetInstanceProcAddr");
 
-#  define CLOSE_VULKAN_LOADER(handle) \
+#    define CLOSE_VULKAN_LOADER(handle) \
     FreeLibrary(handle); \
     handle = 0
-#elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
-#  if FAKE_UNITY_PLATFORM_ANDROID
+#  elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
+#    if FAKE_UNITY_PLATFORM_ANDROID
     renderer->loader_handle = dlopen("libvulkan.so", RTLD_NOW);
-#  elif FAKE_UNITY_PLATFORM_LINUX
+#    elif FAKE_UNITY_PLATFORM_LINUX
     renderer->loader_handle = dlopen("libvulkan.so.1", RTLD_NOW);
-#  elif FAKE_UNITY_PLATFORM_MACOS
+#    elif FAKE_UNITY_PLATFORM_MACOS
     renderer->loader_handle = dlopen("libvulkan.1.dylib", RTLD_NOW);
-#  endif
+#    endif
 
     if (!renderer->loader_handle)
     {
@@ -922,10 +950,10 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     renderer->loader_vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr) dlsym(renderer->loader_handle, "vkGetInstanceProcAddr");
 
-#  define CLOSE_VULKAN_LOADER(handle) \
+#    define CLOSE_VULKAN_LOADER(handle) \
     dlclose(handle); \
     handle = 0
-#endif
+#  endif
 
     if (!renderer->loader_vkGetInstanceProcAddr)
     {
@@ -951,7 +979,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     renderer->vkEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion) renderer->vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion");
 
-#define load_function(name)                                                                       \
+#  define load_function(name)                                                                     \
     do                                                                                            \
     {                                                                                             \
         renderer->name = (PFN_##name) renderer->vkGetInstanceProcAddr(VK_NULL_HANDLE, #name);     \
@@ -965,7 +993,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     __FAKE_UNITY_VULKAN_GLOBAL_FUNCTIONS(load_function);
 
-#undef load_function
+#  undef load_function
 
     VkResult vk_result;
 
@@ -1032,7 +1060,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     renderer->instance = instance;
 
-#define load_function(name)                                                                       \
+#  define load_function(name)                                                                     \
     do                                                                                            \
     {                                                                                             \
         renderer->name = (PFN_##name) renderer->vkGetInstanceProcAddr(instance, #name);           \
@@ -1046,7 +1074,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     __FAKE_UNITY_VULKAN_INSTANCE_FUNCTIONS(load_function);
 
-#undef load_function
+#  undef load_function
 
     uint32_t physical_device_count = 0;
 
@@ -1189,7 +1217,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     renderer->device = device;
 
-#define load_function(name)                                                                       \
+#  define load_function(name)                                                                     \
     do                                                                                            \
     {                                                                                             \
         if (renderer->vkGetInstanceProcAddr != renderer->loader_vkGetInstanceProcAddr)            \
@@ -1210,7 +1238,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     __FAKE_UNITY_VULKAN_DEVICE_FUNCTIONS(load_function);
 
-#undef load_function
+#  undef load_function
 
     VkQueue graphics_queue;
 
@@ -1219,7 +1247,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
     renderer->graphics_queue_index = graphics_queue_index;
     renderer->graphics_queue = graphics_queue;
 
-#undef CLOSE_VULKAN_LOADER
+#  undef CLOSE_VULKAN_LOADER
 
     __fake_unity_state.renderer_type = kUnityGfxRendererVulkan;
 
@@ -1255,65 +1283,74 @@ fake_unity_vulkan_get_device_proc_address(const char *proc_name)
     return NULL;
 }
 
+#endif
+
 FAKE_UNITY_DEF FakeUnity_Texture2D
 fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUnity_TextureFormat format,
                                            bool mip_chain, bool linear, void *native_texture)
 {
     FakeUnity_Texture2D result = 0;
 
-    if ((__fake_unity_state.free_texture_count > 0) &&
-        (__fake_unity_state.renderer_type == kUnityGfxRendererVulkan))
+    if (__fake_unity_state.free_texture_count > 0)
     {
-        FakeUnityVulkanRenderer *renderer = &__fake_unity_state.renderer.vulkan;
-
-        VkFormat vk_format = __fake_unity_get_vk_format(format, linear);
-
-        if (vk_format == VK_FORMAT_UNDEFINED)
+        switch (__fake_unity_state.renderer_type)
         {
-            return 0;
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
+            case kUnityGfxRendererVulkan:
+            {
+                FakeUnityVulkanRenderer *renderer = &__fake_unity_state.renderer.vulkan;
+
+                VkFormat vk_format = __fake_unity_get_vk_format(format, linear);
+
+                if (vk_format == VK_FORMAT_UNDEFINED)
+                {
+                    return 0;
+                }
+
+                VkImageViewCreateInfo image_view_create_info;
+                image_view_create_info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+                image_view_create_info.pNext                           = NULL;
+                image_view_create_info.flags                           = 0;
+                image_view_create_info.image                           = *(VkImage *) native_texture;
+                image_view_create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+                image_view_create_info.format                          = vk_format;
+                image_view_create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+                image_view_create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+                image_view_create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+                image_view_create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+                image_view_create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+                image_view_create_info.subresourceRange.baseMipLevel   = 0;
+                image_view_create_info.subresourceRange.levelCount     = 1;
+                image_view_create_info.subresourceRange.baseArrayLayer = 0;
+                image_view_create_info.subresourceRange.layerCount     = 1;
+
+                VkResult vk_result;
+
+                VkImageView image_view;
+
+                vk_result = renderer->vkCreateImageView(renderer->device, &image_view_create_info, NULL, &image_view);
+
+                if (vk_result != VK_SUCCESS)
+                {
+                    fprintf(stderr, "[fake_unity] error: vkCreateImageView(width = %d, height = %d, format = %s, image = %p) failed -> %s\n",
+                                    width, height, __fake_unity_vk_format_to_string(vk_format), *(VkImage *) native_texture,
+                                    __fake_unity_vk_result_to_string(vk_result));
+                    return 0;
+                }
+
+                uint16_t index = __fake_unity_state.free_texture_indices[--__fake_unity_state.free_texture_count];
+                uint16_t generation = __fake_unity_state.texture_generations[index];
+
+                result = ((uint32_t) generation << 16) | (uint32_t) index;
+
+                FakeUnityTexture *texture = __fake_unity_state.textures + index;
+
+                texture->width = width;
+                texture->height = height;
+                texture->vk_image_view = image_view;
+            } break;
+#endif
         }
-
-        VkImageViewCreateInfo image_view_create_info;
-        image_view_create_info.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        image_view_create_info.pNext                           = NULL;
-        image_view_create_info.flags                           = 0;
-        image_view_create_info.image                           = *(VkImage *) native_texture;
-        image_view_create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-        image_view_create_info.format                          = vk_format;
-        image_view_create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        image_view_create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        image_view_create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        image_view_create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        image_view_create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        image_view_create_info.subresourceRange.baseMipLevel   = 0;
-        image_view_create_info.subresourceRange.levelCount     = 1;
-        image_view_create_info.subresourceRange.baseArrayLayer = 0;
-        image_view_create_info.subresourceRange.layerCount     = 1;
-
-        VkResult vk_result;
-
-        VkImageView image_view;
-
-        vk_result = renderer->vkCreateImageView(renderer->device, &image_view_create_info, NULL, &image_view);
-
-        if (vk_result != VK_SUCCESS)
-        {
-            fprintf(stderr, "[fake_unity] error: vkCreateImageView(width = %d, height = %d, format = %s, image = %p) failed -> %s\n",
-                            width, height, __fake_unity_vk_format_to_string(vk_format), *(VkImage *) native_texture,
-                            __fake_unity_vk_result_to_string(vk_result));
-            return 0;
-        }
-
-        uint16_t index = __fake_unity_state.free_texture_indices[--__fake_unity_state.free_texture_count];
-        uint16_t generation = __fake_unity_state.texture_generations[index];
-
-        result = ((uint32_t) generation << 16) | (uint32_t) index;
-
-        FakeUnityTexture *texture = __fake_unity_state.textures + index;
-
-        texture->width = width;
-        texture->height = height;
-        texture->vk_image_view = image_view;
     }
 
     return result;
@@ -1329,10 +1366,15 @@ fake_unity_Texture2D_Destroy(FakeUnity_Texture2D texture_handle)
     {
         FakeUnityTexture *texture = __fake_unity_state.textures + index;
 
-        if (__fake_unity_state.renderer_type == kUnityGfxRendererVulkan)
+        switch (__fake_unity_state.renderer_type)
         {
-            FakeUnityVulkanRenderer *renderer = &__fake_unity_state.renderer.vulkan;
-            renderer->vkDestroyImageView(renderer->device, texture->vk_image_view, NULL);
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
+            case kUnityGfxRendererVulkan:
+            {
+                FakeUnityVulkanRenderer *renderer = &__fake_unity_state.renderer.vulkan;
+                renderer->vkDestroyImageView(renderer->device, texture->vk_image_view, NULL);
+            } break;
+#endif
         }
 
         if (__fake_unity_state.texture_generations[index] == 0xFFFF)
