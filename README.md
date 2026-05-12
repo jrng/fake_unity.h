@@ -8,7 +8,8 @@ do unit testing without needing a full unity project and the whole engine.
 ```cpp
 #include <stddef.h>
 
-#include "IUnityProfiler.h" // includes IUnityInterface.h
+#include "IUnityLog.h" // includes IUnityInterface.h
+#include "IUnityProfiler.h"
 #include "IUnityGraphics.h"
 #define VK_NO_PROTOTYPES
 #include "IUnityGraphicsVulkan.h" // includes vulkan/vulkan.h
@@ -53,6 +54,7 @@ for C would look like this:
 #include <stddef.h>
 #include <stdbool.h>
 
+typedef enum UnityLogType UnityLogType;
 typedef enum UnityVulkanResourceAccessMode UnityVulkanResourceAccessMode;
 typedef enum UnityVulkanEventRenderPassPreCondition UnityVulkanEventRenderPassPreCondition;
 typedef enum UnityVulkanGraphicsQueueAccess UnityVulkanGraphicsQueueAccess;
@@ -66,7 +68,8 @@ typedef struct UnityVulkanRecordingState UnityVulkanRecordingState;
 typedef struct UnityVulkanPluginEventConfig UnityVulkanPluginEventConfig;
 typedef struct UnityVulkanSwapchainConfiguration UnityVulkanSwapchainConfiguration;
 
-#include "IUnityGraphics.h" // includes IUnityInterface.h
+#include "IUnityLog.h" // includes IUnityInterface.h
+#include "IUnityGraphics.h"
 #define VK_NO_PROTOTYPES
 #include "IUnityGraphicsVulkan.h" // includes vulkan/vulkan.h
 

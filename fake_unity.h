@@ -17,7 +17,8 @@
 //
 //   #include <stddef.h>
 //
-//   #include "IUnityProfiler.h" // includes IUnityInterface.h
+//   #include "IUnityLog.h" // includes IUnityInterface.h
+//   #include "IUnityProfiler.h"
 //   #include "IUnityGraphics.h"
 //   #define VK_NO_PROTOTYPES
 //   #include "IUnityGraphicsVulkan.h" // includes vulkan/vulkan.h
@@ -196,6 +197,9 @@ typedef struct FakeUnityState
     void *unity_vulkan_init_userdata;
 
     IUnityInterfaces unity_interfaces;
+#if !defined(FAKE_UNITY_NO_LOG)
+    IUnityLog unity_log;
+#endif
 #if !defined(FAKE_UNITY_NO_PROFILER)
     IUnityProfiler unity_profiler;
 #endif
@@ -476,6 +480,22 @@ IUnityInterfaces_RegisterInterface(UnityInterfaceGUID guid, IUnityInterface *ptr
     IUnityInterfaces_RegisterInterfaceSplit(guid.m_GUIDHigh, guid.m_GUIDLow, ptr);
 }
 
+#if !defined(FAKE_UNITY_NO_LOG)
+
+static void
+IUnityLog_Log(UnityLogType type, const char *message, const char *file_name, const int file_line)
+{
+    switch (type)
+    {
+        case kUnityLogTypeError:     fprintf(stderr, "[fake_unity] %s:%d {error} %s\n"    , file_name, file_line, message); break;
+        case kUnityLogTypeWarning:   fprintf(stderr, "[fake_unity] %s:%d {warning} %s\n"  , file_name, file_line, message); break;
+        case kUnityLogTypeLog:       fprintf(stderr, "[fake_unity] %s:%d {log} %s\n"      , file_name, file_line, message); break;
+        case kUnityLogTypeException: fprintf(stderr, "[fake_unity] %s:%d {expection} %s\n", file_name, file_line, message); break;
+    }
+}
+
+#endif
+
 #if !defined(FAKE_UNITY_NO_PROFILER)
 
 static void
@@ -692,6 +712,12 @@ fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count)
     __fake_unity_state.unity_interfaces.RegisterInterface      = IUnityInterfaces_RegisterInterface;
     __fake_unity_state.unity_interfaces.GetInterfaceSplit      = IUnityInterfaces_GetInterfaceSplit;
     __fake_unity_state.unity_interfaces.RegisterInterfaceSplit = IUnityInterfaces_RegisterInterfaceSplit;
+
+#if !defined(FAKE_UNITY_NO_LOG)
+    __fake_unity_state.unity_log.Log = IUnityLog_Log;
+
+    IUnityInterfaces_RegisterInterfaceSplit(0x9E7507fA5B444D5DULL, 0x92FB979515EA83FCULL, &__fake_unity_state.unity_log);
+#endif
 
 #if !defined(FAKE_UNITY_NO_PROFILER)
     __fake_unity_state.unity_profiler.EmitEvent             = IUnityProfiler_EmitEvent;
