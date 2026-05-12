@@ -473,7 +473,7 @@ IUnityInterfaces_RegisterInterface(UnityInterfaceGUID guid, IUnityInterface *ptr
                     "             make the native unity plugin call RegisterInterfaceSplit.\n");
 #endif
 
-    return IUnityInterfaces_RegisterInterfaceSplit(guid.m_GUIDHigh, guid.m_GUIDLow, ptr);
+    IUnityInterfaces_RegisterInterfaceSplit(guid.m_GUIDHigh, guid.m_GUIDLow, ptr);
 }
 
 #if !defined(FAKE_UNITY_NO_PROFILER)
