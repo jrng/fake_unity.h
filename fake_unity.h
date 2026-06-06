@@ -24,6 +24,7 @@
 //   #include "IUnityGraphicsVulkan.h" // includes vulkan/vulkan.h
 //
 //   #define FAKE_UNITY_IMPLEMENTATION
+//   #define FAKE_UNITY_GRAPHICS_VULKAN
 //   #include "fake_unity.h"
 //
 //   typedef int32_t (*PFN_MyNativeFunction)(int32_t a, int32_t b);
@@ -1333,7 +1334,7 @@ fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUn
                 if (vk_result != VK_SUCCESS)
                 {
                     fprintf(stderr, "[fake_unity] error: vkCreateImageView(width = %d, height = %d, format = %s, image = %p) failed -> %s\n",
-                                    width, height, __fake_unity_vk_format_to_string(vk_format), *(VkImage *) native_texture,
+                                    width, height, __fake_unity_vk_format_to_string(vk_format), (void *) *(VkImage *) native_texture,
                                     __fake_unity_vk_result_to_string(vk_result));
                     return 0;
                 }
