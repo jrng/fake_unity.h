@@ -123,6 +123,81 @@ typedef struct FakeUnityGraphicsDeviceEventCallbacks
     IUnityGraphicsDeviceEventCallback *items;
 } FakeUnityGraphicsDeviceEventCallbacks;
 
+#if defined(FAKE_UNITY_GRAPHICS_OPENGLES) || defined(FAKE_UNITY_GRAPHICS_OPENGL_CORE)
+
+#  define FAKE_UNITY_MAKE_OPENGL_VERSION(major, minor) (((uint32_t) (major) << 16) | (uint32_t) (minor))
+
+#  include <EGL/egl.h>
+#  include <GLES/gl.h>
+
+#ifndef EGL_EXT_device_base
+#define EGL_EXT_device_base 1
+typedef void *EGLDeviceEXT;
+#define EGL_NO_DEVICE_EXT                 EGL_CAST(EGLDeviceEXT,0)
+#define EGL_BAD_DEVICE_EXT                0x322B
+#define EGL_DEVICE_EXT                    0x322C
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLQUERYDEVICEATTRIBEXTPROC) (EGLDeviceEXT device, EGLint attribute, EGLAttrib *value);
+typedef const char *(EGLAPIENTRYP PFNEGLQUERYDEVICESTRINGEXTPROC) (EGLDeviceEXT device, EGLint name);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLQUERYDEVICESEXTPROC) (EGLint max_devices, EGLDeviceEXT *devices, EGLint *num_devices);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLQUERYDISPLAYATTRIBEXTPROC) (EGLDisplay dpy, EGLint attribute, EGLAttrib *value);
+#ifdef EGL_EGLEXT_PROTOTYPES
+EGLAPI EGLBoolean EGLAPIENTRY eglQueryDeviceAttribEXT (EGLDeviceEXT device, EGLint attribute, EGLAttrib *value);
+EGLAPI const char *EGLAPIENTRY eglQueryDeviceStringEXT (EGLDeviceEXT device, EGLint name);
+EGLAPI EGLBoolean EGLAPIENTRY eglQueryDevicesEXT (EGLint max_devices, EGLDeviceEXT *devices, EGLint *num_devices);
+EGLAPI EGLBoolean EGLAPIENTRY eglQueryDisplayAttribEXT (EGLDisplay dpy, EGLint attribute, EGLAttrib *value);
+#endif
+#endif /* EGL_EXT_device_base */
+
+#ifndef EGL_EXT_device_query_name
+#define EGL_EXT_device_query_name 1
+#define EGL_RENDERER_EXT                  0x335F
+#endif /* EGL_EXT_device_query_name */
+
+#ifndef EGL_EXT_device_type
+#define EGL_EXT_device_type 1
+#define EGL_DEVICE_TYPE_EXT               0x3590
+#define EGL_DEVICE_TYPE_OTHER_EXT         0x3591
+#define EGL_DEVICE_TYPE_INTEGRATED_GPU_EXT 0x3592
+#define EGL_DEVICE_TYPE_DISCRETE_GPU_EXT  0x3593
+#define EGL_DEVICE_TYPE_CPU_EXT           0x3594
+#endif /* EGL_EXT_device_type */
+
+#ifndef EGL_EXT_platform_device
+#define EGL_EXT_platform_device 1
+#define EGL_PLATFORM_DEVICE_EXT           0x313F
+#endif /* EGL_EXT_platform_device */
+
+#ifndef EGL_KHR_create_context
+#define EGL_KHR_create_context 1
+#define EGL_CONTEXT_MAJOR_VERSION_KHR     0x3098
+#define EGL_CONTEXT_MINOR_VERSION_KHR     0x30FB
+#define EGL_CONTEXT_FLAGS_KHR             0x30FC
+#define EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR 0x30FD
+#define EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_KHR 0x31BD
+#define EGL_NO_RESET_NOTIFICATION_KHR     0x31BE
+#define EGL_LOSE_CONTEXT_ON_RESET_KHR     0x31BF
+#define EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR  0x00000001
+#define EGL_CONTEXT_OPENGL_FORWARD_COMPATIBLE_BIT_KHR 0x00000002
+#define EGL_CONTEXT_OPENGL_ROBUST_ACCESS_BIT_KHR 0x00000004
+#define EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR 0x00000001
+#define EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT_KHR 0x00000002
+#define EGL_OPENGL_ES3_BIT_KHR            0x00000040
+#endif /* EGL_KHR_create_context */
+
+#ifndef EGL_KHR_no_config_context
+#define EGL_KHR_no_config_context 1
+#define EGL_NO_CONFIG_KHR                 EGL_CAST(EGLConfig,0)
+#endif /* EGL_KHR_no_config_context */
+
+typedef struct FakeUnityOpenGlRenderer
+{
+    PFNEGLQUERYDEVICESEXTPROC eglQueryDevicesEXT;
+    PFNEGLQUERYDEVICEATTRIBEXTPROC eglQueryDeviceAttribEXT;
+    PFNEGLQUERYDEVICESTRINGEXTPROC eglQueryDeviceStringEXT;
+} FakeUnityOpenGlRenderer;
+
+#endif
+
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
 
 #  define __FAKE_UNITY_VULKAN_GLOBAL_FUNCTIONS(__name__) \
@@ -176,9 +251,15 @@ typedef struct FakeUnityTexture
     int32_t width;
     int32_t height;
 
-#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
-    VkImageView vk_image_view;
+    union
+    {
+#if defined(FAKE_UNITY_GRAPHICS_OPENGLES) || defined(FAKE_UNITY_GRAPHICS_OPENGL_CORE)
+        GLuint gl_texture;
 #endif
+#if defined(FAKE_UNITY_GRAPHICS_VULKAN)
+        VkImageView vk_image_view;
+#endif
+    } api;
 } FakeUnityTexture;
 
 typedef struct FakeUnityState
@@ -219,6 +300,9 @@ typedef struct FakeUnityState
 
     union FakeUnityRenderer
     {
+#if defined(FAKE_UNITY_GRAPHICS_OPENGLES) || defined(FAKE_UNITY_GRAPHICS_OPENGL_CORE)
+        FakeUnityOpenGlRenderer opengl;
+#endif
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
         FakeUnityVulkanRenderer vulkan;
 #endif
@@ -255,6 +339,26 @@ FAKE_UNITY_DEF uint32_t fake_unity_load_native_plugin(const char *filename);
 
 // Retrieves the pointer to a function from the native plugin.
 FAKE_UNITY_DEF void *fake_unity_native_plugin_get_proc_address(uint32_t plugin_handle, const char *proc_name);
+
+#if defined(FAKE_UNITY_GRAPHICS_OPENGLES)
+
+// Initializes the rendering subsystem with opengl es. gl_version is the opengl es
+// version to use. If gl_version is zero a default version is used. device_index
+// selects the egl device to use. If device_index is negative a default device is
+// used. Returns true on success.
+FAKE_UNITY_DEF bool fake_unity_create_opengles_renderer(uint32_t gl_version, int32_t device_index);
+
+#endif
+
+#if defined(FAKE_UNITY_GRAPHICS_OPENGL_CORE)
+
+// Initializes the rendering subsystem with opengl core. gl_version is the opengl
+// version to use. If gl_version is zero a default version is used. device_index
+// selects the egl device to use. If device_index is negative a default device is
+// used. Returns true on success.
+FAKE_UNITY_DEF bool fake_unity_create_opengl_core_renderer(uint32_t gl_version, int32_t device_index);
+
+#endif
 
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
 
@@ -294,6 +398,473 @@ static FakeUnityState __fake_unity_state;
 
 #if FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
 #  include <dlfcn.h>
+#endif
+
+static inline bool
+__fake_unity_sized_string_equal(size_t a_count, const char *a, const char *b)
+{
+    for (size_t i = 0; i < a_count; i += 1)
+    {
+        if (a[i] != b[i])
+        {
+            return false;
+        }
+    }
+
+    return (b[a_count] == 0);
+}
+
+#if defined(FAKE_UNITY_GRAPHICS_OPENGLES) || defined(FAKE_UNITY_GRAPHICS_OPENGL_CORE)
+
+static inline const char *
+__fake_unity_egl_error_to_string(EGLint error)
+{
+    const char *str = "<unknown-egl-error>";
+
+#define NAME(name) case name: str = #name; break
+
+    switch (error)
+    {
+        NAME(EGL_SUCCESS);
+        NAME(EGL_NOT_INITIALIZED);
+        NAME(EGL_BAD_ACCESS);
+        NAME(EGL_BAD_ALLOC);
+        NAME(EGL_BAD_ATTRIBUTE);
+        NAME(EGL_BAD_CONTEXT);
+        NAME(EGL_BAD_CONFIG);
+        NAME(EGL_BAD_CURRENT_SURFACE);
+        NAME(EGL_BAD_DISPLAY);
+        NAME(EGL_BAD_SURFACE);
+        NAME(EGL_BAD_MATCH);
+        NAME(EGL_BAD_PARAMETER);
+        NAME(EGL_BAD_NATIVE_PIXMAP);
+        NAME(EGL_BAD_NATIVE_WINDOW);
+        NAME(EGL_CONTEXT_LOST);
+        NAME(EGL_BAD_DEVICE_EXT);
+        default: break;
+    }
+
+#undef NAME
+
+    return str;
+}
+
+static inline const char *
+__fake_unity_egl_device_type_to_string(EGLAttrib type)
+{
+    const char *str = "<unknown-egl-device-type>";
+
+#  define NAME(name) case name: str = #name; break
+
+    switch (type)
+    {
+        NAME(EGL_DEVICE_TYPE_OTHER_EXT);
+        NAME(EGL_DEVICE_TYPE_INTEGRATED_GPU_EXT);
+        NAME(EGL_DEVICE_TYPE_DISCRETE_GPU_EXT);
+        NAME(EGL_DEVICE_TYPE_CPU_EXT);
+        default: break;
+    }
+
+#  undef NAME
+
+    return str;
+}
+
+// The order in this table matters for preference.
+// They are ordered from most to least preferable.
+static const EGLAttrib __fake_unity_preferred_egl_device_types[] = {
+    EGL_DEVICE_TYPE_DISCRETE_GPU_EXT,
+    EGL_DEVICE_TYPE_INTEGRATED_GPU_EXT,
+    EGL_DEVICE_TYPE_CPU_EXT,
+};
+
+static inline uint32_t
+__fake_unity_get_prefer_index_from_egl_device_type(EGLAttrib device_type)
+{
+    uint32_t result = UINT32_MAX;
+
+    for (size_t i = 0; i < (sizeof(__fake_unity_preferred_egl_device_types) / sizeof(__fake_unity_preferred_egl_device_types[0])); i += 1)
+    {
+        if (__fake_unity_preferred_egl_device_types[i] == device_type)
+        {
+            result = (uint32_t) i;
+            break;
+        }
+    }
+
+    return result;
+}
+
+static inline bool
+__fake_unity_egl_device_type_is_better(EGLAttrib a, EGLAttrib b)
+{
+    uint32_t a_prefer_index = __fake_unity_get_prefer_index_from_egl_device_type(a);
+    uint32_t b_prefer_index = __fake_unity_get_prefer_index_from_egl_device_type(b);
+
+    return (a_prefer_index < b_prefer_index);
+}
+
+static bool
+__fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t device_index)
+{
+    if (__fake_unity_state.renderer_type != kUnityGfxRendererNull)
+    {
+        return false;
+    }
+
+    if (gl_version == 0)
+    {
+        if (api == EGL_OPENGL_ES_API)
+        {
+            gl_version = FAKE_UNITY_MAKE_OPENGL_VERSION(2, 0);
+        }
+        else if (api == EGL_OPENGL_API)
+        {
+            gl_version = FAKE_UNITY_MAKE_OPENGL_VERSION(3, 2);
+        }
+    }
+
+    FakeUnityOpenGlRenderer *renderer = &__fake_unity_state.renderer.opengl;
+
+    const char *client_extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+
+    if (!client_extensions)
+    {
+        fprintf(stderr, "[fake_unity] error: egl does not have client extensions\n");
+        return false;
+    }
+
+    bool has_EGL_EXT_device_query = false;
+    bool has_EGL_EXT_platform_base = false;
+    bool has_EGL_EXT_platform_device = false;
+    bool has_EGL_EXT_device_enumeration = false;
+
+    const char *at = client_extensions;
+
+    for (;;)
+    {
+        while (*at == ' ')  at += 1;
+        if (!*at)  break;
+        const char *start = at;
+        while (*at && (*at != ' '))  at += 1;
+
+        if (__fake_unity_sized_string_equal(at - start, start, "EGL_EXT_device_query"))
+        {
+            has_EGL_EXT_device_query = true;
+        }
+        else if (__fake_unity_sized_string_equal(at - start, start, "EGL_EXT_platform_base"))
+        {
+            has_EGL_EXT_platform_base = true;
+        }
+        else if (__fake_unity_sized_string_equal(at - start, start, "EGL_EXT_platform_device"))
+        {
+            has_EGL_EXT_platform_device = true;
+        }
+        else if (__fake_unity_sized_string_equal(at - start, start, "EGL_EXT_device_enumeration"))
+        {
+            has_EGL_EXT_device_enumeration = true;
+        }
+    }
+
+    if (!has_EGL_EXT_device_enumeration)
+    {
+        fprintf(stderr, "[fake_unity] error: egl does not have client extension 'EGL_EXT_device_enumeration'\n");
+        return false;
+    }
+
+    if (!has_EGL_EXT_platform_base)
+    {
+        fprintf(stderr, "[fake_unity] error: egl does not have client extension 'EGL_EXT_platform_base'\n");
+        return false;
+    }
+
+    if (!has_EGL_EXT_platform_device)
+    {
+        fprintf(stderr, "[fake_unity] error: egl does not have client extension 'EGL_EXT_platform_device'\n");
+        return false;
+    }
+
+    renderer->eglQueryDevicesEXT = (PFNEGLQUERYDEVICESEXTPROC) eglGetProcAddress("eglQueryDevicesEXT");
+
+    if (has_EGL_EXT_device_query)
+    {
+        renderer->eglQueryDeviceAttribEXT = (PFNEGLQUERYDEVICEATTRIBEXTPROC) eglGetProcAddress("eglQueryDeviceAttribEXT");
+        renderer->eglQueryDeviceStringEXT = (PFNEGLQUERYDEVICESTRINGEXTPROC) eglGetProcAddress("eglQueryDeviceStringEXT");
+    }
+
+    if (!renderer->eglQueryDevicesEXT)
+    {
+        fprintf(stderr, "[fake_unity] error: could not load egl client function 'eglQueryDevicesEXT'.\n");
+    }
+
+    EGLint device_count = 0;
+
+    if (!renderer->eglQueryDevicesEXT(0, NULL, &device_count))
+    {
+        fprintf(stderr, "[fake_unity] error: eglQueryDevicesEXT.0 failed -> %s\n",
+                        __fake_unity_egl_error_to_string(eglGetError()));
+        return false;
+    }
+
+    EGLDeviceEXT *devices = (EGLDeviceEXT *) malloc(sizeof(*devices) * device_count);
+
+    if (!renderer->eglQueryDevicesEXT(device_count, devices, &device_count))
+    {
+        fprintf(stderr, "[fake_unity] error: eglQueryDevicesEXT.1 failed -> %s\n",
+                        __fake_unity_egl_error_to_string(eglGetError()));
+        free(devices);
+        return false;
+    }
+
+    int32_t best_device_index = -1;
+    EGLAttrib best_device_type = EGL_DEVICE_TYPE_OTHER_EXT;
+
+    fprintf(stderr, "[fake_unity] %d egl devices:\n", device_count);
+
+    for (EGLint i = 0; i < device_count; i += 1)
+    {
+        const char *vendor_name = "<unknown-vendor>";
+        const char *renderer_name = "<unknown-renderer>";
+        EGLAttrib device_type = EGL_DEVICE_TYPE_INTEGRATED_GPU_EXT;
+
+        if (has_EGL_EXT_device_query)
+        {
+            const char *device_extensions = renderer->eglQueryDeviceStringEXT(devices[i], EGL_EXTENSIONS);
+
+            if (device_extensions)
+            {
+                bool has_EGL_EXT_device_type = false;
+                bool has_EGL_MESA_device_software = false;
+                bool has_EGL_EXT_device_query_name = false;
+
+                const char *at = device_extensions;
+
+                for (;;)
+                {
+                    while (*at == ' ')  at += 1;
+                    if (!*at)  break;
+                    const char *start = at;
+                    while (*at && (*at != ' '))  at += 1;
+
+                    if (__fake_unity_sized_string_equal(at - start, start, "EGL_EXT_device_type"))
+                    {
+                        has_EGL_EXT_device_type = true;
+                    }
+                    else if (__fake_unity_sized_string_equal(at - start, start, "EGL_MESA_device_software"))
+                    {
+                        has_EGL_MESA_device_software = true;
+                    }
+                    else if (__fake_unity_sized_string_equal(at - start, start, "EGL_EXT_device_query_name"))
+                    {
+                        has_EGL_EXT_device_query_name = true;
+                    }
+                }
+
+                if (has_EGL_EXT_device_type)
+                {
+                    EGLAttrib type;
+
+                    if (renderer->eglQueryDeviceAttribEXT(devices[i], EGL_DEVICE_TYPE_EXT, &type))
+                    {
+                        device_type = type;
+                    }
+                }
+                else if (has_EGL_MESA_device_software)
+                {
+                    device_type = EGL_DEVICE_TYPE_CPU_EXT;
+                }
+
+                if (has_EGL_EXT_device_query_name)
+                {
+                    const char *vendor = renderer->eglQueryDeviceStringEXT(devices[i], EGL_VENDOR);
+                    const char *renderer_ext = renderer->eglQueryDeviceStringEXT(devices[i], EGL_RENDERER_EXT);
+
+                    if (vendor)  vendor_name = vendor;
+                    if (renderer_ext)  renderer_name = renderer_ext;
+                }
+            }
+        }
+
+        fprintf(stderr, "[fake_unity] [%d] %s - %s (type = %s)\n", i, vendor_name, renderer_name,
+                        __fake_unity_egl_device_type_to_string(device_type));
+
+        if (device_type == EGL_DEVICE_TYPE_OTHER_EXT)
+        {
+            continue;
+        }
+
+        if (__fake_unity_egl_device_type_is_better(device_type, best_device_type))
+        {
+            best_device_type = device_type;
+            best_device_index = i;
+        }
+    }
+
+    if ((device_index < 0) || (device_index >= device_count))
+    {
+        device_index = best_device_index;
+    }
+
+    if ((device_index < 0) || (device_index >= device_count))
+    {
+        fprintf(stderr, "[fake_unity] error: device_index = %d is out of bounds [0, %u).\n", device_index, device_count);
+        free(devices);
+        return false;
+    }
+
+    EGLDeviceEXT device = devices[device_index];
+
+    free(devices);
+
+    fprintf(stderr, "[fake_unity] selected device at index %d\n", device_index);
+
+    EGLDisplay display = eglGetPlatformDisplay(EGL_PLATFORM_DEVICE_EXT, device, NULL);
+
+    if (display == EGL_NO_DISPLAY)
+    {
+        fprintf(stderr, "[fake_unity] error: could not get a display from device -> %s\n",
+                        __fake_unity_egl_error_to_string(eglGetError()));
+        return false;
+    }
+
+    EGLint version_major, version_minor;
+
+    if (!eglInitialize(display, &version_major, &version_minor))
+    {
+        fprintf(stderr, "[fake_unity] error: could not initialize the egl display -> %s\n",
+                        __fake_unity_egl_error_to_string(eglGetError()));
+        return false;
+    }
+
+    fprintf(stderr, "[fake_unity] egl version %d.%d\n", version_major, version_minor);
+
+    if (!eglBindAPI(api))
+    {
+        fprintf(stderr, "[fake_unity] error: could not bind opengl api -> %s\n",
+                        __fake_unity_egl_error_to_string(eglGetError()));
+        eglTerminate(display);
+        return false;
+    }
+
+    const char *display_extensions = eglQueryString(display, EGL_EXTENSIONS);
+
+    if (!display_extensions)
+    {
+        fprintf(stderr, "[fake_unity] error: egl does not have display extensions\n");
+        eglTerminate(display);
+        return false;
+    }
+
+    bool has_EGL_KHR_create_context = false;
+    bool has_EGL_KHR_no_config_context = false;
+    bool has_EGL_KHR_surfaceless_context = false;
+
+    at = display_extensions;
+
+    for (;;)
+    {
+        while (*at == ' ')  at += 1;
+        if (!*at)  break;
+        const char *start = at;
+        while (*at && (*at != ' '))  at += 1;
+
+        if (__fake_unity_sized_string_equal(at - start, start, "EGL_KHR_create_context"))
+        {
+            has_EGL_KHR_create_context = true;
+        }
+        else if (__fake_unity_sized_string_equal(at - start, start, "EGL_KHR_no_config_context"))
+        {
+            has_EGL_KHR_no_config_context = true;
+        }
+        else if (__fake_unity_sized_string_equal(at - start, start, "EGL_KHR_surfaceless_context"))
+        {
+            has_EGL_KHR_surfaceless_context = true;
+        }
+    }
+
+    if (!has_EGL_KHR_create_context)
+    {
+        fprintf(stderr, "[fake_unity] error: egl does not have display extension 'EGL_KHR_create_context'\n");
+        eglTerminate(display);
+        return false;
+    }
+
+    if (!has_EGL_KHR_no_config_context)
+    {
+        fprintf(stderr, "[fake_unity] error: egl does not have display extension 'EGL_KHR_no_config_context'\n");
+        eglTerminate(display);
+        return false;
+    }
+
+    if (!has_EGL_KHR_surfaceless_context)
+    {
+        fprintf(stderr, "[fake_unity] error: egl does not have display extension 'EGL_KHR_surfaceless_context'\n");
+        eglTerminate(display);
+        return false;
+    }
+
+    int index = 0;
+    EGLint context_attribs[8];
+
+    context_attribs[index++] = EGL_CONTEXT_MAJOR_VERSION_KHR;
+    context_attribs[index++] = (EGLint) (gl_version >> 16);
+
+    context_attribs[index++] = EGL_CONTEXT_MINOR_VERSION_KHR;
+    context_attribs[index++] = (EGLint) (gl_version & 0xFFFF);
+
+    if (api == EGL_OPENGL_API)
+    {
+        context_attribs[index++] = EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR;
+        context_attribs[index++] = EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR;
+    }
+
+    context_attribs[index++] = EGL_NONE;
+
+    EGLContext context = eglCreateContext(display, EGL_NO_CONFIG_KHR, EGL_NO_CONTEXT, context_attribs);
+
+    if (context == EGL_NO_CONTEXT)
+    {
+        fprintf(stderr, "[fake_unity] error: could not create an opengl context -> %s\n",
+                        __fake_unity_egl_error_to_string(eglGetError()));
+        eglTerminate(display);
+        return false;
+    }
+
+    if (!eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context))
+    {
+        fprintf(stderr, "[fake_unity] error: could not make openg context current -> %s\n",
+                        __fake_unity_egl_error_to_string(eglGetError()));
+        eglDestroyContext(display, context);
+        eglTerminate(display);
+        return false;
+    }
+
+    fprintf(stderr, "[fake_unity] %s\n", glGetString(GL_VERSION));
+
+    if (api == EGL_OPENGL_ES_API)
+    {
+        if (gl_version >= FAKE_UNITY_MAKE_OPENGL_VERSION(3, 0))
+        {
+            __fake_unity_state.renderer_type = kUnityGfxRendererOpenGLES30;
+        }
+        else
+        {
+            __fake_unity_state.renderer_type = kUnityGfxRendererOpenGLES20;
+        }
+    }
+    else if (api == EGL_OPENGL_API)
+    {
+        __fake_unity_state.renderer_type = kUnityGfxRendererOpenGLCore;
+    }
+
+    for (int32_t i = 0; i < __fake_unity_state.graphics_device_event_callbacks.count; i += 1)
+    {
+        __fake_unity_state.graphics_device_event_callbacks.items[i](kUnityGfxDeviceEventInitialize);
+    }
+
+    return true;
+}
+
 #endif
 
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
@@ -903,6 +1474,26 @@ fake_unity_native_plugin_get_proc_address(uint32_t plugin_handle, const char *pr
     return result;
 }
 
+#if defined(FAKE_UNITY_GRAPHICS_OPENGLES)
+
+FAKE_UNITY_DEF bool
+fake_unity_create_opengles_renderer(uint32_t gl_version, int32_t device_index)
+{
+    return __fake_unity_create_opengl_renderer(EGL_OPENGL_ES_API, gl_version, device_index);
+}
+
+#endif
+
+#if defined(FAKE_UNITY_GRAPHICS_OPENGL_CORE)
+
+FAKE_UNITY_DEF bool
+fake_unity_create_opengl_core_renderer(uint32_t gl_version, int32_t device_index)
+{
+    return __fake_unity_create_opengl_renderer(EGL_OPENGL_API, gl_version, device_index);
+}
+
+#endif
+
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
 
 FAKE_UNITY_DEF bool
@@ -1296,6 +1887,23 @@ fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUn
     {
         switch (__fake_unity_state.renderer_type)
         {
+#if defined(FAKE_UNITY_GRAPHICS_OPENGLES) || defined(FAKE_UNITY_GRAPHICS_OPENGL_CORE)
+            case kUnityGfxRendererOpenGLES20:
+            case kUnityGfxRendererOpenGLES30:
+            case kUnityGfxRendererOpenGLCore:
+            {
+                uint16_t index = __fake_unity_state.free_texture_indices[--__fake_unity_state.free_texture_count];
+                uint16_t generation = __fake_unity_state.texture_generations[index];
+
+                result = ((uint32_t) generation << 16) | (uint32_t) index;
+
+                FakeUnityTexture *texture = __fake_unity_state.textures + index;
+
+                texture->width = width;
+                texture->height = height;
+                texture->api.gl_texture = (GLuint) (uintptr_t) native_texture;
+            } break;
+#endif
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
             case kUnityGfxRendererVulkan:
             {
@@ -1348,7 +1956,7 @@ fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUn
 
                 texture->width = width;
                 texture->height = height;
-                texture->vk_image_view = image_view;
+                texture->api.vk_image_view = image_view;
             } break;
 #endif
             default: break;
@@ -1370,11 +1978,18 @@ fake_unity_Texture2D_Destroy(FakeUnity_Texture2D texture_handle)
 
         switch (__fake_unity_state.renderer_type)
         {
+#if defined(FAKE_UNITY_GRAPHICS_OPENGLES) || defined(FAKE_UNITY_GRAPHICS_OPENGL_CORE)
+            case kUnityGfxRendererOpenGLES20:
+            case kUnityGfxRendererOpenGLES30:
+            case kUnityGfxRendererOpenGLCore:
+            {
+            } break;
+#endif
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
             case kUnityGfxRendererVulkan:
             {
                 FakeUnityVulkanRenderer *renderer = &__fake_unity_state.renderer.vulkan;
-                renderer->vkDestroyImageView(renderer->device, texture->vk_image_view, NULL);
+                renderer->vkDestroyImageView(renderer->device, texture->api.vk_image_view, NULL);
             } break;
 #endif
             default: break;
