@@ -589,12 +589,26 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
     if (has_EGL_EXT_device_query)
     {
         renderer->eglQueryDeviceAttribEXT = (PFNEGLQUERYDEVICEATTRIBEXTPROC) eglGetProcAddress("eglQueryDeviceAttribEXT");
+
+        if (!renderer->eglQueryDeviceAttribEXT)
+        {
+            fprintf(stderr, "[fake_unity] error: could not load egl client function 'eglQueryDeviceAttribEXT'.\n");
+            return false;
+        }
+
         renderer->eglQueryDeviceStringEXT = (PFNEGLQUERYDEVICESTRINGEXTPROC) eglGetProcAddress("eglQueryDeviceStringEXT");
+
+        if (!renderer->eglQueryDeviceStringEXT)
+        {
+            fprintf(stderr, "[fake_unity] error: could not load egl client function 'eglQueryDeviceStringEXT'.\n");
+            return false;
+        }
     }
 
     if (!renderer->eglQueryDevicesEXT)
     {
         fprintf(stderr, "[fake_unity] error: could not load egl client function 'eglQueryDevicesEXT'.\n");
+        return false;
     }
 
     EGLint device_count = 0;
