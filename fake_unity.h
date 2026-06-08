@@ -391,6 +391,8 @@ FAKE_UNITY_DEF void fake_unity_Texture2D_Destroy(FakeUnity_Texture2D texture_han
 
 #if defined(FAKE_UNITY_IMPLEMENTATION)
 
+#define PREFIX "[fake_unity] "
+
 static FakeUnityState __fake_unity_state;
 
 #include <stdio.h>
@@ -530,7 +532,7 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
     if (!client_extensions)
     {
-        fprintf(stderr, "[fake_unity] error: egl does not have client extensions\n");
+        fprintf(stderr, PREFIX "error: egl does not have client extensions\n");
         return false;
     }
 
@@ -568,19 +570,19 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
     if (!has_EGL_EXT_device_enumeration)
     {
-        fprintf(stderr, "[fake_unity] error: egl does not have client extension 'EGL_EXT_device_enumeration'\n");
+        fprintf(stderr, PREFIX "error: egl does not have client extension 'EGL_EXT_device_enumeration'\n");
         return false;
     }
 
     if (!has_EGL_EXT_platform_base)
     {
-        fprintf(stderr, "[fake_unity] error: egl does not have client extension 'EGL_EXT_platform_base'\n");
+        fprintf(stderr, PREFIX "error: egl does not have client extension 'EGL_EXT_platform_base'\n");
         return false;
     }
 
     if (!has_EGL_EXT_platform_device)
     {
-        fprintf(stderr, "[fake_unity] error: egl does not have client extension 'EGL_EXT_platform_device'\n");
+        fprintf(stderr, PREFIX "error: egl does not have client extension 'EGL_EXT_platform_device'\n");
         return false;
     }
 
@@ -592,7 +594,7 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
         if (!renderer->eglQueryDeviceAttribEXT)
         {
-            fprintf(stderr, "[fake_unity] error: could not load egl client function 'eglQueryDeviceAttribEXT'.\n");
+            fprintf(stderr, PREFIX "error: could not load egl client function 'eglQueryDeviceAttribEXT'.\n");
             return false;
         }
 
@@ -600,14 +602,14 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
         if (!renderer->eglQueryDeviceStringEXT)
         {
-            fprintf(stderr, "[fake_unity] error: could not load egl client function 'eglQueryDeviceStringEXT'.\n");
+            fprintf(stderr, PREFIX "error: could not load egl client function 'eglQueryDeviceStringEXT'.\n");
             return false;
         }
     }
 
     if (!renderer->eglQueryDevicesEXT)
     {
-        fprintf(stderr, "[fake_unity] error: could not load egl client function 'eglQueryDevicesEXT'.\n");
+        fprintf(stderr, PREFIX "error: could not load egl client function 'eglQueryDevicesEXT'.\n");
         return false;
     }
 
@@ -615,7 +617,7 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
     if (!renderer->eglQueryDevicesEXT(0, NULL, &device_count))
     {
-        fprintf(stderr, "[fake_unity] error: eglQueryDevicesEXT.0 failed -> %s\n",
+        fprintf(stderr, PREFIX "error: eglQueryDevicesEXT.0 failed -> %s\n",
                         __fake_unity_egl_error_to_string(eglGetError()));
         return false;
     }
@@ -624,7 +626,7 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
     if (!renderer->eglQueryDevicesEXT(device_count, devices, &device_count))
     {
-        fprintf(stderr, "[fake_unity] error: eglQueryDevicesEXT.1 failed -> %s\n",
+        fprintf(stderr, PREFIX "error: eglQueryDevicesEXT.1 failed -> %s\n",
                         __fake_unity_egl_error_to_string(eglGetError()));
         free(devices);
         return false;
@@ -633,7 +635,7 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
     int32_t best_device_index = -1;
     EGLAttrib best_device_type = EGL_DEVICE_TYPE_OTHER_EXT;
 
-    fprintf(stderr, "[fake_unity] %d egl devices:\n", device_count);
+    fprintf(stderr, PREFIX "%d egl devices:\n", device_count);
 
     for (EGLint i = 0; i < device_count; i += 1)
     {
@@ -699,7 +701,7 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
             }
         }
 
-        fprintf(stderr, "[fake_unity] [%d] %s - %s (type = %s)\n", i, vendor_name, renderer_name,
+        fprintf(stderr, PREFIX "[%d] %s - %s (type = %s)\n", i, vendor_name, renderer_name,
                         __fake_unity_egl_device_type_to_string(device_type));
 
         if (device_type == EGL_DEVICE_TYPE_OTHER_EXT)
@@ -721,7 +723,7 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
     if ((device_index < 0) || (device_index >= device_count))
     {
-        fprintf(stderr, "[fake_unity] error: device_index = %d is out of bounds [0, %u).\n", device_index, device_count);
+        fprintf(stderr, PREFIX "error: device_index = %d is out of bounds [0, %u).\n", device_index, device_count);
         free(devices);
         return false;
     }
@@ -730,13 +732,13 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
     free(devices);
 
-    fprintf(stderr, "[fake_unity] selected device at index %d\n", device_index);
+    fprintf(stderr, PREFIX "selected device at index %d\n", device_index);
 
     EGLDisplay display = eglGetPlatformDisplay(EGL_PLATFORM_DEVICE_EXT, device, NULL);
 
     if (display == EGL_NO_DISPLAY)
     {
-        fprintf(stderr, "[fake_unity] error: could not get a display from device -> %s\n",
+        fprintf(stderr, PREFIX "error: could not get a display from device -> %s\n",
                         __fake_unity_egl_error_to_string(eglGetError()));
         return false;
     }
@@ -745,16 +747,16 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
     if (!eglInitialize(display, &version_major, &version_minor))
     {
-        fprintf(stderr, "[fake_unity] error: could not initialize the egl display -> %s\n",
+        fprintf(stderr, PREFIX "error: could not initialize the egl display -> %s\n",
                         __fake_unity_egl_error_to_string(eglGetError()));
         return false;
     }
 
-    fprintf(stderr, "[fake_unity] egl version %d.%d\n", version_major, version_minor);
+    fprintf(stderr, PREFIX "egl version %d.%d\n", version_major, version_minor);
 
     if (!eglBindAPI(api))
     {
-        fprintf(stderr, "[fake_unity] error: could not bind opengl api -> %s\n",
+        fprintf(stderr, PREFIX "error: could not bind opengl api -> %s\n",
                         __fake_unity_egl_error_to_string(eglGetError()));
         eglTerminate(display);
         return false;
@@ -764,7 +766,7 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
     if (!display_extensions)
     {
-        fprintf(stderr, "[fake_unity] error: egl does not have display extensions\n");
+        fprintf(stderr, PREFIX "error: egl does not have display extensions\n");
         eglTerminate(display);
         return false;
     }
@@ -798,21 +800,21 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
     if (!has_EGL_KHR_create_context)
     {
-        fprintf(stderr, "[fake_unity] error: egl does not have display extension 'EGL_KHR_create_context'\n");
+        fprintf(stderr, PREFIX "error: egl does not have display extension 'EGL_KHR_create_context'\n");
         eglTerminate(display);
         return false;
     }
 
     if (!has_EGL_KHR_no_config_context)
     {
-        fprintf(stderr, "[fake_unity] error: egl does not have display extension 'EGL_KHR_no_config_context'\n");
+        fprintf(stderr, PREFIX "error: egl does not have display extension 'EGL_KHR_no_config_context'\n");
         eglTerminate(display);
         return false;
     }
 
     if (!has_EGL_KHR_surfaceless_context)
     {
-        fprintf(stderr, "[fake_unity] error: egl does not have display extension 'EGL_KHR_surfaceless_context'\n");
+        fprintf(stderr, PREFIX "error: egl does not have display extension 'EGL_KHR_surfaceless_context'\n");
         eglTerminate(display);
         return false;
     }
@@ -838,7 +840,7 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
     if (context == EGL_NO_CONTEXT)
     {
-        fprintf(stderr, "[fake_unity] error: could not create an opengl context -> %s\n",
+        fprintf(stderr, PREFIX "error: could not create an opengl context -> %s\n",
                         __fake_unity_egl_error_to_string(eglGetError()));
         eglTerminate(display);
         return false;
@@ -846,14 +848,14 @@ __fake_unity_create_opengl_renderer(EGLenum api, uint32_t gl_version, int32_t de
 
     if (!eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, context))
     {
-        fprintf(stderr, "[fake_unity] error: could not make openg context current -> %s\n",
+        fprintf(stderr, PREFIX "error: could not make openg context current -> %s\n",
                         __fake_unity_egl_error_to_string(eglGetError()));
         eglDestroyContext(display, context);
         eglTerminate(display);
         return false;
     }
 
-    fprintf(stderr, "[fake_unity] %s\n", glGetString(GL_VERSION));
+    fprintf(stderr, PREFIX "%s\n", glGetString(GL_VERSION));
 
     if (api == EGL_OPENGL_ES_API)
     {
@@ -1062,7 +1064,7 @@ static IUnityInterface *
 IUnityInterfaces_GetInterface(UnityInterfaceGUID guid)
 {
 #ifndef __cplusplus
-    fprintf(stderr, "[fake_unity] warning: your program is not compiled as a c++ program,\n"
+    fprintf(stderr, PREFIX "warning: your program is not compiled as a c++ program,\n"
                     "             but it looks like the native unity plugin you are loading is.\n"
                     "             Due to calling conventions being incompatible, calling GetInterface\n"
                     "             may not work. Please compile your program as a c++ program or\n"
@@ -1076,7 +1078,7 @@ static void
 IUnityInterfaces_RegisterInterface(UnityInterfaceGUID guid, IUnityInterface *ptr)
 {
 #ifndef __cplusplus
-    fprintf(stderr, "[fake_unity] warning: your program is not compiled as a c++ program,\n"
+    fprintf(stderr, PREFIX "warning: your program is not compiled as a c++ program,\n"
                     "             but it looks like the native unity plugin you are loading is.\n"
                     "             Due to calling conventions being incompatible, calling RegisterInterface\n"
                     "             may not work. Please compile your program as a c++ program or\n"
@@ -1093,10 +1095,10 @@ IUnityLog_Log(UnityLogType type, const char *message, const char *file_name, con
 {
     switch (type)
     {
-        case kUnityLogTypeError:     fprintf(stderr, "[fake_unity] %s:%d {error} %s\n"    , file_name, file_line, message); break;
-        case kUnityLogTypeWarning:   fprintf(stderr, "[fake_unity] %s:%d {warning} %s\n"  , file_name, file_line, message); break;
-        case kUnityLogTypeLog:       fprintf(stderr, "[fake_unity] %s:%d {log} %s\n"      , file_name, file_line, message); break;
-        case kUnityLogTypeException: fprintf(stderr, "[fake_unity] %s:%d {expection} %s\n", file_name, file_line, message); break;
+        case kUnityLogTypeError:     fprintf(stderr, PREFIX "%s:%d {error} %s\n"    , file_name, file_line, message); break;
+        case kUnityLogTypeWarning:   fprintf(stderr, PREFIX "%s:%d {warning} %s\n"  , file_name, file_line, message); break;
+        case kUnityLogTypeLog:       fprintf(stderr, PREFIX "%s:%d {log} %s\n"      , file_name, file_line, message); break;
+        case kUnityLogTypeException: fprintf(stderr, PREFIX "%s:%d {expection} %s\n", file_name, file_line, message); break;
     }
 }
 
@@ -1107,48 +1109,48 @@ IUnityLog_Log(UnityLogType type, const char *message, const char *file_name, con
 static void
 IUnityProfiler_EmitEvent(const UnityProfilerMarkerDesc* markerDesc, UnityProfilerMarkerEventType eventType, uint16_t eventDataCount, const UnityProfilerMarkerData* eventData)
 {
-    fprintf(stderr, "[fake_unity] TODO: EmitEvent\n");
+    fprintf(stderr, PREFIX "TODO: EmitEvent\n");
 }
 
 static int
 IUnityProfiler_IsEnabled()
 {
-    fprintf(stderr, "[fake_unity] TODO: IsEnabled\n");
+    fprintf(stderr, PREFIX "TODO: IsEnabled\n");
     return 0;
 }
 
 static int
 IUnityProfiler_IsAvailable()
 {
-    fprintf(stderr, "[fake_unity] TODO: IsAvailable\n");
+    fprintf(stderr, PREFIX "TODO: IsAvailable\n");
     return 0;
 }
 
 static int
 IUnityProfiler_CreateMarker(const UnityProfilerMarkerDesc** desc, const char* name, UnityProfilerCategoryId category, UnityProfilerMarkerFlags flags, int eventDataCount)
 {
-    fprintf(stderr, "[fake_unity] TODO: CreateMarker\n");
+    fprintf(stderr, PREFIX "TODO: CreateMarker\n");
     return 0;
 }
 
 static int
 IUnityProfiler_SetMarkerMetadataName(const UnityProfilerMarkerDesc* desc, int index, const char* metadataName, UnityProfilerMarkerDataType metadataType, UnityProfilerMarkerDataUnit metadataUnit)
 {
-    fprintf(stderr, "[fake_unity] TODO: SetMarkerMetadataName\n");
+    fprintf(stderr, PREFIX "TODO: SetMarkerMetadataName\n");
     return 0;
 }
 
 static int
 IUnityProfiler_RegisterThread(UnityProfilerThreadId* threadId, const char* groupName, const char* name)
 {
-    fprintf(stderr, "[fake_unity] TODO: RegisterThread\n");
+    fprintf(stderr, PREFIX "TODO: RegisterThread\n");
     return 0;
 }
 
 static int
 IUnityProfiler_UnregisterThread(UnityProfilerThreadId threadId)
 {
-    fprintf(stderr, "[fake_unity] TODO: UnregisterThread\n");
+    fprintf(stderr, PREFIX "TODO: UnregisterThread\n");
     return 0;
 }
 
@@ -1186,7 +1188,7 @@ IUnityGraphics_UnregisterDeviceEventCallback(IUnityGraphicsDeviceEventCallback c
 static int
 IUnityGraphics_ReserveEventIDRange(int count)
 {
-    fprintf(stderr, "[fake_unity] TODO: ReserveEventIDRange\n");
+    fprintf(stderr, PREFIX "TODO: ReserveEventIDRange\n");
     // TODO:
     return 0;
 }
@@ -1209,14 +1211,14 @@ UnityGraphicsVulkan_InterceptInitialization(UnityVulkanInitCallback func, void *
 static PFN_vkVoidFunction
 UnityGraphicsVulkan_InterceptVulkanAPI(const char *name, PFN_vkVoidFunction func)
 {
-    fprintf(stderr, "[fake_unity] TODO: InterceptVulkanAPI\n");
+    fprintf(stderr, PREFIX "TODO: InterceptVulkanAPI\n");
     return 0;
 }
 
 static void
 UnityGraphicsVulkan_ConfigureEvent(int event_id, const UnityVulkanPluginEventConfig *plugin_event_config)
 {
-    fprintf(stderr, "[fake_unity] TODO: ConfigureEvent\n");
+    fprintf(stderr, PREFIX "TODO: ConfigureEvent\n");
 }
 
 static UnityVulkanInstance
@@ -1238,7 +1240,7 @@ UnityGraphicsVulkan_Instance()
 static bool
 UnityGraphicsVulkan_CommandRecordingState(UnityVulkanRecordingState *command_recording_state, UnityVulkanGraphicsQueueAccess queue_access)
 {
-    fprintf(stderr, "[fake_unity] TODO: CommandRecordingState\n");
+    fprintf(stderr, PREFIX "TODO: CommandRecordingState\n");
     return false;
 }
 
@@ -1247,7 +1249,7 @@ UnityGraphicsVulkan_AccessTexture(void* native_texture, const VkImageSubresource
                                   VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
                                   UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
 {
-    fprintf(stderr, "[fake_unity] TODO: AccessTexture\n");
+    fprintf(stderr, PREFIX "TODO: AccessTexture\n");
     return false;
 }
 
@@ -1256,7 +1258,7 @@ UnityGraphicsVulkan_AccessRenderBufferTexture(UnityRenderBuffer native_render_bu
                                               VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
                                               UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
 {
-    fprintf(stderr, "[fake_unity] TODO: AccessRenderBufferTexture\n");
+    fprintf(stderr, PREFIX "TODO: AccessRenderBufferTexture\n");
     return false;
 }
 
@@ -1265,7 +1267,7 @@ UnityGraphicsVulkan_AccessRenderBufferResolveTexture(UnityRenderBuffer native_re
                                                      VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
                                                      UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
 {
-    fprintf(stderr, "[fake_unity] TODO: AccessRenderBufferResolveTexture\n");
+    fprintf(stderr, PREFIX "TODO: AccessRenderBufferResolveTexture\n");
     return false;
 }
 
@@ -1273,32 +1275,32 @@ static bool
 UnityGraphicsVulkan_AccessBuffer(void* native_buffer, VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
                                  UnityVulkanResourceAccessMode access_mode, UnityVulkanBuffer *buffer)
 {
-    fprintf(stderr, "[fake_unity] TODO: AccessBuffer\n");
+    fprintf(stderr, PREFIX "TODO: AccessBuffer\n");
     return false;
 }
 
 static void
 UnityGraphicsVulkan_EnsureOutsideRenderPass()
 {
-    fprintf(stderr, "[fake_unity] TODO: EnsureOutsideRenderPass\n");
+    fprintf(stderr, PREFIX "TODO: EnsureOutsideRenderPass\n");
 }
 
 static void
 UnityGraphicsVulkan_EnsureInsideRenderPass()
 {
-    fprintf(stderr, "[fake_unity] TODO: EnsureInsideRenderPass\n");
+    fprintf(stderr, PREFIX "TODO: EnsureInsideRenderPass\n");
 }
 
 static void
 UnityGraphicsVulkan_AccessQueue(UnityRenderingEventAndData func, int event_id, void* userdata, bool flush)
 {
-    fprintf(stderr, "[fake_unity] TODO: AccessQueue\n");
+    fprintf(stderr, PREFIX "TODO: AccessQueue\n");
 }
 
 static bool
 UnityGraphicsVulkan_ConfigureSwapchain(const UnityVulkanSwapchainConfiguration *swapchain_config)
 {
-    fprintf(stderr, "[fake_unity] TODO: ConfigureSwapchain\n");
+    fprintf(stderr, PREFIX "TODO: ConfigureSwapchain\n");
     return false;
 }
 
@@ -1307,7 +1309,7 @@ UnityGraphicsVulkan_AccessTextureByID(UnityTextureID texture_id, const VkImageSu
                                       VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
                                       UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
 {
-    fprintf(stderr, "[fake_unity] TODO: AccessTextureByID\n");
+    fprintf(stderr, PREFIX "TODO: AccessTextureByID\n");
     return false;
 }
 
@@ -1427,7 +1429,7 @@ fake_unity_load_native_plugin(const char *filename)
 
         if (!handle)
         {
-            fprintf(stderr, "[fake_unity] error: could not load native plugin '%s'\n", filename);
+            fprintf(stderr, PREFIX "error: could not load native plugin '%s'\n", filename);
             return 0;
         }
 #elif FAKE_UNITY_PLATFORM_ANDROID || FAKE_UNITY_PLATFORM_LINUX || FAKE_UNITY_PLATFORM_MACOS
@@ -1435,7 +1437,7 @@ fake_unity_load_native_plugin(const char *filename)
 
         if (!handle)
         {
-            fprintf(stderr, "[fake_unity] error: could not load native plugin '%s' -> %s\n", filename, dlerror());
+            fprintf(stderr, PREFIX "error: could not load native plugin '%s' -> %s\n", filename, dlerror());
             return 0;
         }
 #endif
@@ -1530,7 +1532,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     if (!renderer->loader_handle)
     {
-        fprintf(stderr, "[fake_unity] error: could not load vulkan loader\n");
+        fprintf(stderr, PREFIX "error: could not load vulkan loader\n");
         return false;
     }
 
@@ -1550,7 +1552,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     if (!renderer->loader_handle)
     {
-        fprintf(stderr, "[fake_unity] error: could not load vulkan loader -> %s\n", dlerror());
+        fprintf(stderr, PREFIX "error: could not load vulkan loader -> %s\n", dlerror());
         return false;
     }
 
@@ -1563,7 +1565,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     if (!renderer->loader_vkGetInstanceProcAddr)
     {
-        fprintf(stderr, "[fake_unity] error: could not load vulkan function 'vkGetInstanceProcAddr'.\n");
+        fprintf(stderr, PREFIX "error: could not load vulkan function 'vkGetInstanceProcAddr'.\n");
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
     }
@@ -1585,16 +1587,16 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     renderer->vkEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion) renderer->vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion");
 
-#  define load_function(name)                                                                     \
-    do                                                                                            \
-    {                                                                                             \
-        renderer->name = (PFN_##name) renderer->vkGetInstanceProcAddr(VK_NULL_HANDLE, #name);     \
-        if (!renderer->name)                                                                      \
-        {                                                                                         \
-            fprintf(stderr, "[fake_unity] error: could not load vulkan function '" #name "'.\n"); \
-            CLOSE_VULKAN_LOADER(renderer->loader_handle);                                         \
-            return false;                                                                         \
-        }                                                                                         \
+#  define load_function(name)                                                                 \
+    do                                                                                        \
+    {                                                                                         \
+        renderer->name = (PFN_##name) renderer->vkGetInstanceProcAddr(VK_NULL_HANDLE, #name); \
+        if (!renderer->name)                                                                  \
+        {                                                                                     \
+            fprintf(stderr, PREFIX "error: could not load vulkan function '" #name "'.\n");   \
+            CLOSE_VULKAN_LOADER(renderer->loader_handle);                                     \
+            return false;                                                                     \
+        }                                                                                     \
     } while (0)
 
     __FAKE_UNITY_VULKAN_GLOBAL_FUNCTIONS(load_function);
@@ -1623,12 +1625,12 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
         }
         else
         {
-            fprintf(stderr, "[fake_unity] warning: vkEnumerateInstanceVersion failed -> %s\n",
+            fprintf(stderr, PREFIX "warning: vkEnumerateInstanceVersion failed -> %s\n",
                             __fake_unity_vk_result_to_string(vk_result));
         }
     }
 
-    fprintf(stderr, "[fake_unity] loaded vulkan library with instance version %u.%u.%u\n",
+    fprintf(stderr, PREFIX "loaded vulkan library with instance version %u.%u.%u\n",
                     VK_API_VERSION_MAJOR(vulkan_instance_version),
                     VK_API_VERSION_MINOR(vulkan_instance_version),
                     VK_API_VERSION_PATCH(vulkan_instance_version));
@@ -1658,7 +1660,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     if (vk_result != VK_SUCCESS)
     {
-        fprintf(stderr, "[fake_unity] error: vkCreateInstance failed -> %s\n",
+        fprintf(stderr, PREFIX "error: vkCreateInstance failed -> %s\n",
                         __fake_unity_vk_result_to_string(vk_result));
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
@@ -1666,16 +1668,16 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     renderer->instance = instance;
 
-#  define load_function(name)                                                                     \
-    do                                                                                            \
-    {                                                                                             \
-        renderer->name = (PFN_##name) renderer->vkGetInstanceProcAddr(instance, #name);           \
-        if (!renderer->name)                                                                      \
-        {                                                                                         \
-            fprintf(stderr, "[fake_unity] error: could not load vulkan function '" #name "'.\n"); \
-            CLOSE_VULKAN_LOADER(renderer->loader_handle);                                         \
-            return false;                                                                         \
-        }                                                                                         \
+#  define load_function(name)                                                               \
+    do                                                                                      \
+    {                                                                                       \
+        renderer->name = (PFN_##name) renderer->vkGetInstanceProcAddr(instance, #name);     \
+        if (!renderer->name)                                                                \
+        {                                                                                   \
+            fprintf(stderr, PREFIX "error: could not load vulkan function '" #name "'.\n"); \
+            CLOSE_VULKAN_LOADER(renderer->loader_handle);                                   \
+            return false;                                                                   \
+        }                                                                                   \
     } while (0)
 
     __FAKE_UNITY_VULKAN_INSTANCE_FUNCTIONS(load_function);
@@ -1688,7 +1690,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     if (vk_result != VK_SUCCESS)
     {
-        fprintf(stderr, "[fake_unity] error: vkEnumeratePhysicalDevices.0 failed -> %s\n",
+        fprintf(stderr, PREFIX "error: vkEnumeratePhysicalDevices.0 failed -> %s\n",
                         __fake_unity_vk_result_to_string(vk_result));
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
@@ -1700,7 +1702,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     if (vk_result != VK_SUCCESS)
     {
-        fprintf(stderr, "[fake_unity] error: vkEnumeratePhysicalDevices.1 failed -> %s\n",
+        fprintf(stderr, PREFIX "error: vkEnumeratePhysicalDevices.1 failed -> %s\n",
                         __fake_unity_vk_result_to_string(vk_result));
         free(physical_devices);
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
@@ -1710,14 +1712,14 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
     int32_t best_device_index = -1;
     VkPhysicalDeviceType best_device_type = VK_PHYSICAL_DEVICE_TYPE_OTHER;
 
-    fprintf(stderr, "[fake_unity] %u physical devices:\n", physical_device_count);
+    fprintf(stderr, PREFIX "%u physical devices:\n", physical_device_count);
 
     for (uint32_t i = 0; i < physical_device_count; i += 1)
     {
         VkPhysicalDeviceProperties properties;
         renderer->vkGetPhysicalDeviceProperties(physical_devices[i], &properties);
 
-        fprintf(stderr, "[fake_unity] [%u] %s (type = %s) (api version = %u.%u.%u)\n",
+        fprintf(stderr, PREFIX "[%u] %s (type = %s) (api version = %u.%u.%u)\n",
                         i, properties.deviceName, __fake_unity_vk_physical_device_type_to_string(properties.deviceType),
                         VK_API_VERSION_MAJOR(properties.apiVersion), VK_API_VERSION_MINOR(properties.apiVersion), VK_API_VERSION_PATCH(properties.apiVersion));
 
@@ -1745,7 +1747,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     if ((device_index < 0) || (device_index >= (int32_t) physical_device_count))
     {
-        fprintf(stderr, "[fake_unity] error: device_index = %d is out of bounds [0, %u).\n", device_index, physical_device_count);
+        fprintf(stderr, PREFIX "error: device_index = %d is out of bounds [0, %u).\n", device_index, physical_device_count);
         free(physical_devices);
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
@@ -1755,7 +1757,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     free(physical_devices);
 
-    fprintf(stderr, "[fake_unity] selected device at index %d\n", device_index);
+    fprintf(stderr, PREFIX "selected device at index %d\n", device_index);
 
     renderer->physical_device = physical_device;
 
@@ -1782,7 +1784,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     if (graphics_queue_index >= queue_family_count)
     {
-        fprintf(stderr, "[fake_unity] error: could not find a vulkan queue with graphics cababilities.\n");
+        fprintf(stderr, PREFIX "error: could not find a vulkan queue with graphics cababilities.\n");
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
     }
@@ -1815,7 +1817,7 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     if (vk_result != VK_SUCCESS)
     {
-        fprintf(stderr, "[fake_unity] error: vkCreateDevice failed -> %s\n",
+        fprintf(stderr, PREFIX "error: vkCreateDevice failed -> %s\n",
                         __fake_unity_vk_result_to_string(vk_result));
         CLOSE_VULKAN_LOADER(renderer->loader_handle);
         return false;
@@ -1823,23 +1825,23 @@ fake_unity_create_vulkan_renderer(int32_t device_index)
 
     renderer->device = device;
 
-#  define load_function(name)                                                                     \
-    do                                                                                            \
-    {                                                                                             \
-        if (renderer->vkGetInstanceProcAddr != renderer->loader_vkGetInstanceProcAddr)            \
-        {                                                                                         \
-            renderer->name = (PFN_##name) renderer->vkGetInstanceProcAddr(instance, #name);       \
-        }                                                                                         \
-        else                                                                                      \
-        {                                                                                         \
-            renderer->name = (PFN_##name) renderer->vkGetDeviceProcAddr(device, #name);           \
-        }                                                                                         \
-        if (!renderer->name)                                                                      \
-        {                                                                                         \
-            fprintf(stderr, "[fake_unity] error: could not load vulkan function '" #name "'.\n"); \
-            CLOSE_VULKAN_LOADER(renderer->loader_handle);                                         \
-            return false;                                                                         \
-        }                                                                                         \
+#  define load_function(name)                                                               \
+    do                                                                                      \
+    {                                                                                       \
+        if (renderer->vkGetInstanceProcAddr != renderer->loader_vkGetInstanceProcAddr)      \
+        {                                                                                   \
+            renderer->name = (PFN_##name) renderer->vkGetInstanceProcAddr(instance, #name); \
+        }                                                                                   \
+        else                                                                                \
+        {                                                                                   \
+            renderer->name = (PFN_##name) renderer->vkGetDeviceProcAddr(device, #name);     \
+        }                                                                                   \
+        if (!renderer->name)                                                                \
+        {                                                                                   \
+            fprintf(stderr, PREFIX "error: could not load vulkan function '" #name "'.\n"); \
+            CLOSE_VULKAN_LOADER(renderer->loader_handle);                                   \
+            return false;                                                                   \
+        }                                                                                   \
     } while (0)
 
     __FAKE_UNITY_VULKAN_DEVICE_FUNCTIONS(load_function);
@@ -1955,7 +1957,7 @@ fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUn
 
                 if (vk_result != VK_SUCCESS)
                 {
-                    fprintf(stderr, "[fake_unity] error: vkCreateImageView(width = %d, height = %d, format = %s, image = %p) failed -> %s\n",
+                    fprintf(stderr, PREFIX "error: vkCreateImageView(width = %d, height = %d, format = %s, image = %p) failed -> %s\n",
                                     width, height, __fake_unity_vk_format_to_string(vk_format), (void *) *(VkImage *) native_texture,
                                     __fake_unity_vk_result_to_string(vk_result));
                     return 0;
@@ -2020,6 +2022,7 @@ fake_unity_Texture2D_Destroy(FakeUnity_Texture2D texture_handle)
 }
 
 #undef ARRAY_ENSURE_SPACE
+#undef PREFIX
 
 #endif // defined(FAKE_UNITY_IMPLEMENTATION)
 
