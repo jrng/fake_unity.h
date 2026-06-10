@@ -1196,7 +1196,7 @@ IUnityGraphics_ReserveEventIDRange(int count)
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
 
 static bool
-UnityGraphicsVulkan_InterceptInitialization(UnityVulkanInitCallback func, void *userdata)
+IUnityGraphicsVulkan_InterceptInitialization(UnityVulkanInitCallback func, void *userdata)
 {
     if (__fake_unity_state.renderer_type != kUnityGfxRendererNull)
     {
@@ -1209,20 +1209,20 @@ UnityGraphicsVulkan_InterceptInitialization(UnityVulkanInitCallback func, void *
 }
 
 static PFN_vkVoidFunction
-UnityGraphicsVulkan_InterceptVulkanAPI(const char *name, PFN_vkVoidFunction func)
+IUnityGraphicsVulkan_InterceptVulkanAPI(const char *name, PFN_vkVoidFunction func)
 {
     fprintf(stderr, PREFIX "TODO: InterceptVulkanAPI\n");
     return 0;
 }
 
 static void
-UnityGraphicsVulkan_ConfigureEvent(int event_id, const UnityVulkanPluginEventConfig *plugin_event_config)
+IUnityGraphicsVulkan_ConfigureEvent(int event_id, const UnityVulkanPluginEventConfig *plugin_event_config)
 {
     fprintf(stderr, PREFIX "TODO: ConfigureEvent\n");
 }
 
 static UnityVulkanInstance
-UnityGraphicsVulkan_Instance()
+IUnityGraphicsVulkan_Instance()
 {
     UnityVulkanInstance vulkan_instance;
 
@@ -1238,76 +1238,76 @@ UnityGraphicsVulkan_Instance()
 }
 
 static bool
-UnityGraphicsVulkan_CommandRecordingState(UnityVulkanRecordingState *command_recording_state, UnityVulkanGraphicsQueueAccess queue_access)
+IUnityGraphicsVulkan_CommandRecordingState(UnityVulkanRecordingState *command_recording_state, UnityVulkanGraphicsQueueAccess queue_access)
 {
     fprintf(stderr, PREFIX "TODO: CommandRecordingState\n");
     return false;
 }
 
 static bool
-UnityGraphicsVulkan_AccessTexture(void* native_texture, const VkImageSubresource *sub_resource, VkImageLayout layout,
-                                  VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
-                                  UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
+IUnityGraphicsVulkan_AccessTexture(void* native_texture, const VkImageSubresource *sub_resource, VkImageLayout layout,
+                                   VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
+                                   UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
 {
     fprintf(stderr, PREFIX "TODO: AccessTexture\n");
     return false;
 }
 
 static bool
-UnityGraphicsVulkan_AccessRenderBufferTexture(UnityRenderBuffer native_render_buffer, const VkImageSubresource *sub_resource, VkImageLayout layout,
-                                              VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
-                                              UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
+IUnityGraphicsVulkan_AccessRenderBufferTexture(UnityRenderBuffer native_render_buffer, const VkImageSubresource *sub_resource, VkImageLayout layout,
+                                               VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
+                                               UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
 {
     fprintf(stderr, PREFIX "TODO: AccessRenderBufferTexture\n");
     return false;
 }
 
 static bool
-UnityGraphicsVulkan_AccessRenderBufferResolveTexture(UnityRenderBuffer native_render_buffer, const VkImageSubresource *sub_resource, VkImageLayout layout,
-                                                     VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
-                                                     UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
+IUnityGraphicsVulkan_AccessRenderBufferResolveTexture(UnityRenderBuffer native_render_buffer, const VkImageSubresource *sub_resource, VkImageLayout layout,
+                                                      VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
+                                                      UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
 {
     fprintf(stderr, PREFIX "TODO: AccessRenderBufferResolveTexture\n");
     return false;
 }
 
 static bool
-UnityGraphicsVulkan_AccessBuffer(void* native_buffer, VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
-                                 UnityVulkanResourceAccessMode access_mode, UnityVulkanBuffer *buffer)
+IUnityGraphicsVulkan_AccessBuffer(void* native_buffer, VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
+                                  UnityVulkanResourceAccessMode access_mode, UnityVulkanBuffer *buffer)
 {
     fprintf(stderr, PREFIX "TODO: AccessBuffer\n");
     return false;
 }
 
 static void
-UnityGraphicsVulkan_EnsureOutsideRenderPass()
+IUnityGraphicsVulkan_EnsureOutsideRenderPass()
 {
     fprintf(stderr, PREFIX "TODO: EnsureOutsideRenderPass\n");
 }
 
 static void
-UnityGraphicsVulkan_EnsureInsideRenderPass()
+IUnityGraphicsVulkan_EnsureInsideRenderPass()
 {
     fprintf(stderr, PREFIX "TODO: EnsureInsideRenderPass\n");
 }
 
 static void
-UnityGraphicsVulkan_AccessQueue(UnityRenderingEventAndData func, int event_id, void* userdata, bool flush)
+IUnityGraphicsVulkan_AccessQueue(UnityRenderingEventAndData func, int event_id, void* userdata, bool flush)
 {
     fprintf(stderr, PREFIX "TODO: AccessQueue\n");
 }
 
 static bool
-UnityGraphicsVulkan_ConfigureSwapchain(const UnityVulkanSwapchainConfiguration *swapchain_config)
+IUnityGraphicsVulkan_ConfigureSwapchain(const UnityVulkanSwapchainConfiguration *swapchain_config)
 {
     fprintf(stderr, PREFIX "TODO: ConfigureSwapchain\n");
     return false;
 }
 
 static bool
-UnityGraphicsVulkan_AccessTextureByID(UnityTextureID texture_id, const VkImageSubresource *sub_resource, VkImageLayout layout,
-                                      VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
-                                      UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
+IUnityGraphicsVulkan_AccessTextureByID(UnityTextureID texture_id, const VkImageSubresource *sub_resource, VkImageLayout layout,
+                                       VkPipelineStageFlags pipeline_stage_flags, VkAccessFlags access_flags,
+                                       UnityVulkanResourceAccessMode access_mode, UnityVulkanImage *image)
 {
     fprintf(stderr, PREFIX "TODO: AccessTextureByID\n");
     return false;
@@ -1351,20 +1351,20 @@ fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count)
     IUnityInterfaces_RegisterInterfaceSplit(0x7CBA0A9CA4DDB544ULL, 0x8C5AD4926EB17B11ULL, &__fake_unity_state.unity_graphics);
 
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
-    __fake_unity_state.unity_graphics_vulkan.InterceptInitialization          = UnityGraphicsVulkan_InterceptInitialization;
-    __fake_unity_state.unity_graphics_vulkan.InterceptVulkanAPI               = UnityGraphicsVulkan_InterceptVulkanAPI;
-    __fake_unity_state.unity_graphics_vulkan.ConfigureEvent                   = UnityGraphicsVulkan_ConfigureEvent;
-    __fake_unity_state.unity_graphics_vulkan.Instance                         = UnityGraphicsVulkan_Instance;
-    __fake_unity_state.unity_graphics_vulkan.CommandRecordingState            = UnityGraphicsVulkan_CommandRecordingState;
-    __fake_unity_state.unity_graphics_vulkan.AccessTexture                    = UnityGraphicsVulkan_AccessTexture;
-    __fake_unity_state.unity_graphics_vulkan.AccessRenderBufferTexture        = UnityGraphicsVulkan_AccessRenderBufferTexture;
-    __fake_unity_state.unity_graphics_vulkan.AccessRenderBufferResolveTexture = UnityGraphicsVulkan_AccessRenderBufferResolveTexture;
-    __fake_unity_state.unity_graphics_vulkan.AccessBuffer                     = UnityGraphicsVulkan_AccessBuffer;
-    __fake_unity_state.unity_graphics_vulkan.EnsureOutsideRenderPass          = UnityGraphicsVulkan_EnsureOutsideRenderPass;
-    __fake_unity_state.unity_graphics_vulkan.EnsureInsideRenderPass           = UnityGraphicsVulkan_EnsureInsideRenderPass;
-    __fake_unity_state.unity_graphics_vulkan.AccessQueue                      = UnityGraphicsVulkan_AccessQueue;
-    __fake_unity_state.unity_graphics_vulkan.ConfigureSwapchain               = UnityGraphicsVulkan_ConfigureSwapchain;
-    __fake_unity_state.unity_graphics_vulkan.AccessTextureByID                = UnityGraphicsVulkan_AccessTextureByID;
+    __fake_unity_state.unity_graphics_vulkan.InterceptInitialization          = IUnityGraphicsVulkan_InterceptInitialization;
+    __fake_unity_state.unity_graphics_vulkan.InterceptVulkanAPI               = IUnityGraphicsVulkan_InterceptVulkanAPI;
+    __fake_unity_state.unity_graphics_vulkan.ConfigureEvent                   = IUnityGraphicsVulkan_ConfigureEvent;
+    __fake_unity_state.unity_graphics_vulkan.Instance                         = IUnityGraphicsVulkan_Instance;
+    __fake_unity_state.unity_graphics_vulkan.CommandRecordingState            = IUnityGraphicsVulkan_CommandRecordingState;
+    __fake_unity_state.unity_graphics_vulkan.AccessTexture                    = IUnityGraphicsVulkan_AccessTexture;
+    __fake_unity_state.unity_graphics_vulkan.AccessRenderBufferTexture        = IUnityGraphicsVulkan_AccessRenderBufferTexture;
+    __fake_unity_state.unity_graphics_vulkan.AccessRenderBufferResolveTexture = IUnityGraphicsVulkan_AccessRenderBufferResolveTexture;
+    __fake_unity_state.unity_graphics_vulkan.AccessBuffer                     = IUnityGraphicsVulkan_AccessBuffer;
+    __fake_unity_state.unity_graphics_vulkan.EnsureOutsideRenderPass          = IUnityGraphicsVulkan_EnsureOutsideRenderPass;
+    __fake_unity_state.unity_graphics_vulkan.EnsureInsideRenderPass           = IUnityGraphicsVulkan_EnsureInsideRenderPass;
+    __fake_unity_state.unity_graphics_vulkan.AccessQueue                      = IUnityGraphicsVulkan_AccessQueue;
+    __fake_unity_state.unity_graphics_vulkan.ConfigureSwapchain               = IUnityGraphicsVulkan_ConfigureSwapchain;
+    __fake_unity_state.unity_graphics_vulkan.AccessTextureByID                = IUnityGraphicsVulkan_AccessTextureByID;
 
     IUnityInterfaces_RegisterInterfaceSplit(0x95355348d4ef4e11ULL, 0x9789313dfcffcc87ULL, &__fake_unity_state.unity_graphics_vulkan);
 #endif
