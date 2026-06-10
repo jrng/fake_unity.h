@@ -11,11 +11,16 @@ do unit testing without needing a full unity project and the whole engine.
 #include "IUnityLog.h" // includes IUnityInterface.h
 #include "IUnityProfiler.h"
 #include "IUnityGraphics.h"
-#define VK_NO_PROTOTYPES
-#include "IUnityGraphicsVulkan.h" // includes vulkan/vulkan.h
+#if defined(__APPLE__) && defined(__MACH__)
+#  include "IUnityGraphicsMetal.h"
+#  define FAKE_UNITY_GRAPHICS_METAL
+#else
+#  define VK_NO_PROTOTYPES
+#  include "IUnityGraphicsVulkan.h" // includes vulkan/vulkan.h
+#  define FAKE_UNITY_GRAPHICS_VULKAN
+#endif
 
 #define FAKE_UNITY_IMPLEMENTATION
-#define FAKE_UNITY_GRAPHICS_VULKAN
 #include "fake_unity.h"
 
 typedef int32_t (*PFN_MyNativeFunction)(int32_t a, int32_t b);
@@ -30,7 +35,11 @@ int main()
 #else
     uint32_t plugin = fake_unity_load_native_plugin("./libNativePlugin.so");
 #endif
+#if FAKE_UNITY_PLATFORM_MACOS
+    fake_unity_create_metal_renderer(-1);
+#else
     fake_unity_create_vulkan_renderer(-1);
+#endif
 
     MyNativeFunction = (PFN_MyNativeFunction) fake_unity_native_plugin_get_proc_address(plugin, "MyNativeFunction");
 
@@ -71,12 +80,17 @@ typedef struct UnityVulkanSwapchainConfiguration UnityVulkanSwapchainConfigurati
 
 #include "IUnityLog.h" // includes IUnityInterface.h
 #include "IUnityGraphics.h"
-#define VK_NO_PROTOTYPES
-#include "IUnityGraphicsVulkan.h" // includes vulkan/vulkan.h
+#if defined(__APPLE__) && defined(__MACH__)
+#  include "IUnityGraphicsMetal.h"
+#  define FAKE_UNITY_GRAPHICS_METAL
+#else
+#  define VK_NO_PROTOTYPES
+#  include "IUnityGraphicsVulkan.h" // includes vulkan/vulkan.h
+#  define FAKE_UNITY_GRAPHICS_VULKAN
+#endif
 
 #define FAKE_UNITY_IMPLEMENTATION
 #define FAKE_UNITY_NO_PROFILER
-#define FAKE_UNITY_GRAPHICS_VULKAN
 #include "fake_unity.h"
 
 typedef int32_t (*PFN_MyNativeFunction)(int32_t a, int32_t b);
@@ -91,7 +105,11 @@ int main(void)
 #else
     uint32_t plugin = fake_unity_load_native_plugin("./libNativePlugin.so");
 #endif
+#if FAKE_UNITY_PLATFORM_MACOS
+    fake_unity_create_metal_renderer(-1);
+#else
     fake_unity_create_vulkan_renderer(-1);
+#endif
 
     MyNativeFunction = (PFN_MyNativeFunction) fake_unity_native_plugin_get_proc_address(plugin, "MyNativeFunction");
 

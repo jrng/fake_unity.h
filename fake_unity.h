@@ -198,6 +198,17 @@ typedef struct FakeUnityOpenGlRenderer
 
 #endif
 
+#if defined(FAKE_UNITY_GRAPHICS_METAL)
+
+#include <Metal/Metal.h>
+
+typedef struct FakeUnityMetalRenderer
+{
+    id<MTLDevice> device;
+} FakeUnityMetalRenderer;
+
+#endif
+
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
 
 #  define __FAKE_UNITY_VULKAN_GLOBAL_FUNCTIONS(__name__) \
@@ -256,6 +267,9 @@ typedef struct FakeUnityTexture
 #if defined(FAKE_UNITY_GRAPHICS_OPENGLES) || defined(FAKE_UNITY_GRAPHICS_OPENGL_CORE)
         GLuint gl_texture;
 #endif
+#if defined(FAKE_UNITY_GRAPHICS_METAL)
+        id<MTLTexture> mtl_texture;
+#endif
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
         VkImageView vk_image_view;
 #endif
@@ -294,6 +308,10 @@ typedef struct FakeUnityState
     IUnityProfiler unity_profiler;
 #endif
     IUnityGraphics unity_graphics;
+#if defined(FAKE_UNITY_GRAPHICS_METAL)
+    IUnityGraphicsMetalV1 unity_graphics_metal_v1;
+    IUnityGraphicsMetalV2 unity_graphics_metal_v2;
+#endif
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
     IUnityGraphicsVulkan unity_graphics_vulkan;
 #endif
@@ -302,6 +320,9 @@ typedef struct FakeUnityState
     {
 #if defined(FAKE_UNITY_GRAPHICS_OPENGLES) || defined(FAKE_UNITY_GRAPHICS_OPENGL_CORE)
         FakeUnityOpenGlRenderer opengl;
+#endif
+#if defined(FAKE_UNITY_GRAPHICS_METAL)
+        FakeUnityMetalRenderer metal;
 #endif
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
         FakeUnityVulkanRenderer vulkan;
@@ -357,6 +378,15 @@ FAKE_UNITY_DEF bool fake_unity_create_opengles_renderer(uint32_t gl_version, int
 // selects the egl device to use. If device_index is negative a default device is
 // used. Returns true on success.
 FAKE_UNITY_DEF bool fake_unity_create_opengl_core_renderer(uint32_t gl_version, int32_t device_index);
+
+#endif
+
+#if defined(FAKE_UNITY_GRAPHICS_METAL)
+
+// Initializes the rendering subsystem with metal. device_index selects the
+// metal device to use. If device_index is negative a default device is
+// used. Returns true on success.
+FAKE_UNITY_DEF bool fake_unity_create_metal_renderer(int32_t device_index);
 
 #endif
 
@@ -1193,6 +1223,97 @@ IUnityGraphics_ReserveEventIDRange(int count)
     return 0;
 }
 
+#if defined(FAKE_UNITY_GRAPHICS_METAL)
+
+static id<MTLCommandBuffer>
+IUnityGraphicsMetalV2_CommitCurrentCommandBuffer()
+{
+    fprintf(stderr, PREFIX "TODO: CommitCurrentCommandBuffer\n");
+    return nil;
+}
+
+static id<MTLCommandQueue>
+IUnityGraphicsMetalV2_CommandQueue()
+{
+    fprintf(stderr, PREFIX "TODO: CommandQueue\n");
+    return nil;
+}
+
+static NSBundle *
+IUnityGraphicsMetalV1_MetalBundle()
+{
+    fprintf(stderr, PREFIX "TODO: MetalBundle\n");
+    return NULL;
+}
+
+static id<MTLDevice>
+IUnityGraphicsMetalV1_MetalDevice()
+{
+    if (__fake_unity_state.renderer_type == kUnityGfxRendererMetal)
+    {
+        return __fake_unity_state.renderer.metal.device;
+    }
+
+    return nil;
+}
+
+static id<MTLCommandBuffer>
+IUnityGraphicsMetalV1_CurrentCommandBuffer()
+{
+    fprintf(stderr, PREFIX "TODO: CurrentCommandBuffer\n");
+    return nil;
+}
+
+static id<MTLCommandEncoder>
+IUnityGraphicsMetalV1_CurrentCommandEncoder()
+{
+    fprintf(stderr, PREFIX "TODO: CurrentCommandEncoder\n");
+    return nil;
+}
+
+static void
+IUnityGraphicsMetalV1_EndCurrentCommandEncoder()
+{
+    fprintf(stderr, PREFIX "TODO: EndCurrentCommandEncoder\n");
+}
+
+static MTLRenderPassDescriptor *
+IUnityGraphicsMetalV1_CurrentRenderPassDescriptor()
+{
+    fprintf(stderr, PREFIX "TODO: CurrentRenderPassDescriptor\n");
+    return NULL;
+}
+
+static UnityRenderBuffer
+IUnityGraphicsMetalV1_RenderBufferFromHandle(void *buffer_handle)
+{
+    fprintf(stderr, PREFIX "TODO: RenderBufferFromHandle\n");
+    return NULL;
+}
+
+static id<MTLTexture>
+IUnityGraphicsMetalV1_TextureFromRenderBuffer(UnityRenderBuffer buffer)
+{
+    fprintf(stderr, PREFIX "TODO: TextureFromRenderBuffer\n");
+    return nil;
+}
+
+static id<MTLTexture>
+IUnityGraphicsMetalV1_AAResolvedTextureFromRenderBuffer(UnityRenderBuffer buffer)
+{
+    fprintf(stderr, PREFIX "TODO: AAResolvedTextureFromRenderBuffer\n");
+    return nil;
+}
+
+static id<MTLTexture>
+IUnityGraphicsMetalV1_StencilTextureFromRenderBuffer(UnityRenderBuffer buffer)
+{
+    fprintf(stderr, PREFIX "TODO: StencilTextureFromRenderBuffer\n");
+    return nil;
+}
+
+#endif
+
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
 
 static bool
@@ -1350,6 +1471,36 @@ fake_unity_initialize(int32_t max_plugin_count, int32_t max_texture_count)
 
     IUnityInterfaces_RegisterInterfaceSplit(0x7CBA0A9CA4DDB544ULL, 0x8C5AD4926EB17B11ULL, &__fake_unity_state.unity_graphics);
 
+#if defined(FAKE_UNITY_GRAPHICS_METAL)
+    __fake_unity_state.unity_graphics_metal_v1.MetalBundle                       = IUnityGraphicsMetalV1_MetalBundle;
+    __fake_unity_state.unity_graphics_metal_v1.MetalDevice                       = IUnityGraphicsMetalV1_MetalDevice;
+    __fake_unity_state.unity_graphics_metal_v1.CurrentCommandBuffer              = IUnityGraphicsMetalV1_CurrentCommandBuffer;
+    __fake_unity_state.unity_graphics_metal_v1.CurrentCommandEncoder             = IUnityGraphicsMetalV1_CurrentCommandEncoder;
+    __fake_unity_state.unity_graphics_metal_v1.EndCurrentCommandEncoder          = IUnityGraphicsMetalV1_EndCurrentCommandEncoder;
+    __fake_unity_state.unity_graphics_metal_v1.CurrentRenderPassDescriptor       = IUnityGraphicsMetalV1_CurrentRenderPassDescriptor;
+    __fake_unity_state.unity_graphics_metal_v1.RenderBufferFromHandle            = IUnityGraphicsMetalV1_RenderBufferFromHandle;
+    __fake_unity_state.unity_graphics_metal_v1.TextureFromRenderBuffer           = IUnityGraphicsMetalV1_TextureFromRenderBuffer;
+    __fake_unity_state.unity_graphics_metal_v1.AAResolvedTextureFromRenderBuffer = IUnityGraphicsMetalV1_AAResolvedTextureFromRenderBuffer;
+    __fake_unity_state.unity_graphics_metal_v1.StencilTextureFromRenderBuffer    = IUnityGraphicsMetalV1_StencilTextureFromRenderBuffer;
+
+    IUnityInterfaces_RegisterInterfaceSplit(0x29F8F3D03833465EULL, 0x92138551C15D823DULL, &__fake_unity_state.unity_graphics_metal_v1);
+
+    __fake_unity_state.unity_graphics_metal_v2.CommitCurrentCommandBuffer        = IUnityGraphicsMetalV2_CommitCurrentCommandBuffer;
+    __fake_unity_state.unity_graphics_metal_v2.CommandQueue                      = IUnityGraphicsMetalV2_CommandQueue;
+    __fake_unity_state.unity_graphics_metal_v2.MetalBundle                       = IUnityGraphicsMetalV1_MetalBundle;
+    __fake_unity_state.unity_graphics_metal_v2.MetalDevice                       = IUnityGraphicsMetalV1_MetalDevice;
+    __fake_unity_state.unity_graphics_metal_v2.CurrentCommandBuffer              = IUnityGraphicsMetalV1_CurrentCommandBuffer;
+    __fake_unity_state.unity_graphics_metal_v2.CurrentCommandEncoder             = IUnityGraphicsMetalV1_CurrentCommandEncoder;
+    __fake_unity_state.unity_graphics_metal_v2.EndCurrentCommandEncoder          = IUnityGraphicsMetalV1_EndCurrentCommandEncoder;
+    __fake_unity_state.unity_graphics_metal_v2.CurrentRenderPassDescriptor       = IUnityGraphicsMetalV1_CurrentRenderPassDescriptor;
+    __fake_unity_state.unity_graphics_metal_v2.RenderBufferFromHandle            = IUnityGraphicsMetalV1_RenderBufferFromHandle;
+    __fake_unity_state.unity_graphics_metal_v2.TextureFromRenderBuffer           = IUnityGraphicsMetalV1_TextureFromRenderBuffer;
+    __fake_unity_state.unity_graphics_metal_v2.AAResolvedTextureFromRenderBuffer = IUnityGraphicsMetalV1_AAResolvedTextureFromRenderBuffer;
+    __fake_unity_state.unity_graphics_metal_v2.StencilTextureFromRenderBuffer    = IUnityGraphicsMetalV1_StencilTextureFromRenderBuffer;
+
+    IUnityInterfaces_RegisterInterfaceSplit(0xF58857784FEF46ECULL, 0x9DB7A8803B87DA3DULL, &__fake_unity_state.unity_graphics_metal_v2);
+#endif
+
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
     __fake_unity_state.unity_graphics_vulkan.InterceptInitialization          = IUnityGraphicsVulkan_InterceptInitialization;
     __fake_unity_state.unity_graphics_vulkan.InterceptVulkanAPI               = IUnityGraphicsVulkan_InterceptVulkanAPI;
@@ -1506,6 +1657,66 @@ FAKE_UNITY_DEF bool
 fake_unity_create_opengl_core_renderer(uint32_t gl_version, int32_t device_index)
 {
     return __fake_unity_create_opengl_renderer(EGL_OPENGL_API, gl_version, device_index);
+}
+
+#endif
+
+#if defined(FAKE_UNITY_GRAPHICS_METAL)
+
+FAKE_UNITY_DEF bool
+fake_unity_create_metal_renderer(int32_t device_index)
+{
+    if (__fake_unity_state.renderer_type != kUnityGfxRendererNull)
+    {
+        return false;
+    }
+
+    FakeUnityMetalRenderer *renderer = &__fake_unity_state.renderer.metal;
+
+    NSArray<id<MTLDevice>> *devices = MTLCopyAllDevices();
+
+    uint32_t device_count = (uint32_t) devices.count;
+    int32_t best_device_index = -1;
+
+    fprintf(stderr, PREFIX "%u metal devices:\n", device_count);
+
+    for (uint32_t i = 0; i < device_count; i += 1)
+    {
+        id<MTLDevice> device = [devices objectAtIndex: i];
+
+        fprintf(stderr, PREFIX "[%u] %s (isLowPower: %s, isHeadless: %s)\n",
+                        i, [[device name] UTF8String], [device isLowPower] ? "true" : "false",
+                        [device isHeadless] ? "true" : "false");
+
+        if (best_device_index < 0)
+        {
+            best_device_index = i;
+        }
+    }
+
+    if ((device_index < 0) || (device_index >= (int32_t) device_count))
+    {
+        device_index = best_device_index;
+    }
+
+    if ((device_index < 0) || (device_index >= (int32_t) device_count))
+    {
+        fprintf(stderr, PREFIX "error: device_index = %d is out of bounds [0, %u).\n", device_index, device_count);
+        return false;
+    }
+
+    fprintf(stderr, PREFIX "selected device at index %d\n", device_index);
+
+    renderer->device = [devices objectAtIndex: device_index];
+
+    __fake_unity_state.renderer_type = kUnityGfxRendererMetal;
+
+    for (int32_t i = 0; i < __fake_unity_state.graphics_device_event_callbacks.count; i += 1)
+    {
+        __fake_unity_state.graphics_device_event_callbacks.items[i](kUnityGfxDeviceEventInitialize);
+    }
+
+    return true;
 }
 
 #endif
@@ -1920,6 +2131,21 @@ fake_unity_Texture2D_CreateExternalTexture(int32_t width, int32_t height, FakeUn
                 texture->api.gl_texture = (GLuint) (uintptr_t) native_texture;
             } break;
 #endif
+#if defined(FAKE_UNITY_GRAPHICS_METAL)
+            case kUnityGfxRendererMetal:
+            {
+                uint16_t index = __fake_unity_state.free_texture_indices[--__fake_unity_state.free_texture_count];
+                uint16_t generation = __fake_unity_state.texture_generations[index];
+
+                result = ((uint32_t) generation << 16) | (uint32_t) index;
+
+                FakeUnityTexture *texture = __fake_unity_state.textures + index;
+
+                texture->width = width;
+                texture->height = height;
+                texture->api.mtl_texture = (id<MTLTexture>) native_texture;
+            } break;
+#endif
 #if defined(FAKE_UNITY_GRAPHICS_VULKAN)
             case kUnityGfxRendererVulkan:
             {
@@ -1998,6 +2224,11 @@ fake_unity_Texture2D_Destroy(FakeUnity_Texture2D texture_handle)
             case kUnityGfxRendererOpenGLES20:
             case kUnityGfxRendererOpenGLES30:
             case kUnityGfxRendererOpenGLCore:
+            {
+            } break;
+#endif
+#if defined(FAKE_UNITY_GRAPHICS_METAL)
+            case kUnityGfxRendererMetal:
             {
             } break;
 #endif

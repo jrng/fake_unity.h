@@ -77,6 +77,11 @@ C_MAKE_ENTRY(command, argument_count, arguments)
             command_append_default_compiler_flags(&command, get_build_type());
             command_append(&command, c_string_concat("-I", get_source_path()));
 
+            if (get_target_platform() == PlatformMacOs)
+            {
+                command_append(&command, is_cpp ? "-ObjC++" : "-ObjC");
+            }
+
             ConfigValue unity_plugin_api_include_path = config_get("unity_plugin_api_include_path");
 
             if (unity_plugin_api_include_path.is_valid &&
@@ -88,6 +93,11 @@ C_MAKE_ENTRY(command, argument_count, arguments)
             command_append_output_executable(&command, c_string_path_concat(get_build_path(), c_string_formated("readme%zu", code_index)), get_target_platform());
             command_append(&command, source_path);
             command_append_default_linker_flags(&command, get_target_architecture());
+
+            if (get_target_platform() == PlatformMacOs)
+            {
+                command_append(&command, "-framework", "Foundation", "-framework", "Metal");
+            }
 
             c_make_log(LogLevelInfo, "compile 'readme%zu'\n", code_index);
             command_run_and_reset_and_wait(&command);
